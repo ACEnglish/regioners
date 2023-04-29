@@ -5,23 +5,25 @@ I got it going and I think it works.
 Turns out that build without `--release` is much slower. But I can do about 1 iteration every 0.7s compared to regioneR 1.5s
 
 There's a few more options I want to implement
+--any : store_true - count as having any overlap instead of number of overlaps
 --overlaps : store_true - allow overlapping entries during randomization (maybe make switch to no-overlaps)
 --circularize : store_true - use circularize instead of shuffle (just add a random number to all, rotate end to start)
 --mask : I have the option, but I'm not using it.
-	Now, the easy implementation is to just retry if a random hits
-	But I bet I can shorten each chrom during GenomeShift building, and then just mask beds on input by
-	if intersects mask, exclude... 
+	Now, the easy implementation is to just retry if randomization places over a mask
+	But I bet it'll be faster to just shorten each chrom during GenomeShift building by mask and 
+	then do another shift for regions by how many masked bases before. Also exclude hits on mask
+	Also.. add mask to repo
 --max-retry : 1000 - when using shuffle, maximum number of attempts before quitting
+	Will want to either fail or make the shuffle return an optional, then we'll have 'None' that won't be added
 
 zeros check: if there's no overlaps observed/permuted, that's an edge case
 chrom check: only load -A/-B that have a key in GenomeShift
 gzip filereading: Would be nice to not require uncompressed bed files as they can get pretty large
 
 After all of that, I *might* work on profiling. Maybe I can make some more improvements to speed.
-
-local z-score?
-
-And I'm probably not doing per-chrom
+later : local z-score?
+later : I would love to figure out how to dedup the `io::read_*`
+much_later : --per-chrom
 
 Day 1 Log:
 CLI only that takes four parameters
