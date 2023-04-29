@@ -150,6 +150,7 @@ fn main() -> std::io::Result<()> {
     info!("perm sd: {}", sd);
 
     let alt = if (initial_overlap_count as f64) < mu {'l'} else {'g'};
+    info!("alt : {}", alt);
     let g_count = count_permutations(initial_overlap_count, &all_counts, alt);
     let p_val = (g_count + 1.0) / ((all_counts.len() as f64) + 1.0);
     info!("p-val : {}", p_val);
