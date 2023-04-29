@@ -1,28 +1,32 @@
 
-Day 1 Summary:
-I got it going and I think it works.
-
+Day 2 Log:
 Turns out that build without `--release` is much slower. But I can do about 1 iteration every 0.7s compared to regioneR 1.5s
 
-There's a few more options I want to implement
---any : store_true - count as having any overlap instead of number of overlaps
---overlaps : store_true - allow overlapping entries during randomization (maybe make switch to no-overlaps)
---circularize : store_true - use circularize instead of shuffle (just add a random number to all, rotate end to start)
+[done ] : Data - I need to move everything regioneRust..test_files to here.
+[done ] : And document the getters
+[done ] : chrom check: only load -A/-B that have a key in GenomeShift
+[done ]--any : store_true - count as having any overlap instead of number of overlaps
+[done ]--no-swap : do not swap A and B
+[done ]--overlaps : store_true - allow overlapping entries during randomization (maybe make switch to no-overlaps)
+
+[inprogress]--max-retry : 1000 - when using shuffle, maximum number of attempts before quitting
+	Won't get an infinite loop, but will silently give a corrupt result.
+--circle : store_true - use circularize instead of shuffle (just add a random number to all, rotate end to start)
+	https://stackoverflow.com/questions/36390665/how-do-you-pass-a-rust-function-as-a-parameter
 --mask : I have the option, but I'm not using it.
 	Now, the easy implementation is to just retry if randomization places over a mask
 	But I bet it'll be faster to just shorten each chrom during GenomeShift building by mask and 
 	then do another shift for regions by how many masked bases before. Also exclude hits on mask
 	Also.. add mask to repo
---max-retry : 1000 - when using shuffle, maximum number of attempts before quitting
-	Will want to either fail or make the shuffle return an optional, then we'll have 'None' that won't be added
 
 zeros check: if there's no overlaps observed/permuted, that's an edge case
-chrom check: only load -A/-B that have a key in GenomeShift
 gzip filereading: Would be nice to not require uncompressed bed files as they can get pretty large
+tests : Turn CpGi and prom into toy data
+no_clone : https://stackoverflow.com/questions/68908091/how-do-i-send-read-only-data-to-other-threads-without-copying
 
 After all of that, I *might* work on profiling. Maybe I can make some more improvements to speed.
 later : local z-score?
-later : I would love to figure out how to dedup the `io::read_*`
+later : I would love to figure out how to dedup the `io::read_*` .. maybe same as --circle
 much_later : --per-chrom
 
 Day 1 Log:

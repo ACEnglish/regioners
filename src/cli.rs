@@ -6,6 +6,10 @@ use clap::Parser;
 // A rust implementation of regioneR for interval overlap permutation testing
 #[command(author = "ACEnglish", version)]
 pub struct ArgParser {
+    /// chromosome lengths (chrom<tab>length)
+    #[arg(short, long)]
+    pub genome: std::path::PathBuf,
+
     /// bed file of regions (chrom<tab>start<tab>end)
     #[arg(short = 'A')]
     pub bed_a: std::path::PathBuf,
@@ -14,25 +18,37 @@ pub struct ArgParser {
     #[arg(short = 'B')]
     pub bed_b: std::path::PathBuf,
     
-    /// chromosome lengths (chrom<tab>length)
-    #[arg(short, long)]
-    pub genome: std::path::PathBuf,
-
-    /// bed file of genome regions to mask (chrom<tab>start<tab>end)
-    #[arg(short, long)]
-    pub mask: Option<std::path::PathBuf>,
-
     /// number of permutations to perform
     #[arg(short, long = "num-times", default_value_t = 100)]
     pub num_times: u32,
     
-    /// number of permutations to perform
+    /// output json file
+    #[arg(short, long)]
+    pub output: std::path::PathBuf,
+
+    /// number of threads to use
     #[arg(short, long, default_value_t = 1)]
     pub threads: u8,
 
-    /// output file
-    #[arg(short, long)]
-    pub output: std::path::PathBuf,
+    /// bed file of genome regions to mask (chrom<tab>start<tab>end)
+    #[arg(long)]
+    pub mask: Option<std::path::PathBuf>,
+
+    /// count any overlap instead of number of overlaps
+    #[arg(long, default_value_t = false)]
+    pub any: bool,
+    
+    /// don't allow overlapping entries during randomization
+    #[arg(long = "no-overlap", default_value_t = false)]
+    pub no_overlaps: bool,
+
+    /// do not swap A and B
+    #[arg(long = "no-swap", default_value_t = false)]
+    pub no_swap: bool,
+
+    /// maximum randomization retries before fail
+    #[arg(long = "max-retry", default_value_t = 50)]
+    pub max_retry: u64
 }
 
 pub fn validate_args(args: &ArgParser) -> bool {

@@ -25,6 +25,7 @@ pub fn read_bed(file: &std::path::PathBuf, genome: &GenomeShift) -> Lapper<u64, 
     info!("parsing {}", file.display());
     let mut ret: Vec<Iv> = vec![];
     let mut tot_size:u64 = 0;
+    let mut warned_chroms: Vec<String> = vec![];
 
     // File hosts must exist in current path before this produces output
     if let Ok(lines) = read_lines(file) {
@@ -37,14 +38,19 @@ pub fn read_bed(file: &std::path::PathBuf, genome: &GenomeShift) -> Lapper<u64, 
                     std::process::exit(1);
                 }
                 let chrom = collection[0].to_string();
-                // raise error on key doesn't exist
-                let m_shift = genome[&chrom];
-                let m_start = collection[1].parse::<u64>().unwrap() + m_shift;
-                let m_stop = collection[2].parse::<u64>().unwrap() + m_shift;
-                ret.push(Iv{start: m_start,
-                            stop: m_stop,
-                            val: 0});
-                tot_size += m_stop - m_start;
+
+                if genome.contains_key(&chrom) {
+                    let m_shift = genome[&chrom];
+                    let m_start = collection[1].parse::<u64>().unwrap() + m_shift;
+                    let m_stop = collection[2].parse::<u64>().unwrap() + m_shift;
+                    ret.push(Iv{start: m_start,
+                                stop: m_stop,
+                                val: 0});
+                    tot_size += m_stop - m_start;
+                } else if !warned_chroms.contains(&chrom) { // but only once
+                    warn!("{} missing from --genome and won't be loaded", chrom);
+                    warned_chroms.push(chrom);
+                }
             }
         }
     }
