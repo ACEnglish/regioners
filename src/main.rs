@@ -6,7 +6,9 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::collections::HashMap;
 
-use rand::Rng;
+use tinyrand::{Rand, StdRand, Seeded, RandRange};
+use tinyrand_std::clock_seed::ClockSeed;
+
 use clap::Parser;
 use rust_lapper::{Lapper};
 use serde_json::{json};
@@ -31,19 +33,19 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
   Randomizers
 */
 fn shuffle_whole_genome(intv: &io::Iv, genome: &io::GenomeShift) -> (u64, u64) {
-    let mut rng = rand::thread_rng();
+    let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     let span = intv.stop - intv.start;
-    let new_pos: u64 = rng.gen_range(0..(genome.span - span));
+    let new_pos: u64 = rand.next_range(0..(genome.span - span));
     let new_end: u64 = new_pos + span;
     return (new_pos, new_end);
 }
 
 fn shuffle_per_chrom(intv: &io::Iv, genome: &io::GenomeShift) -> (u64, u64) {
-    let mut rng = rand::thread_rng();
+    let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     let span = intv.stop - intv.start;
     // Just assume it'll be one
     let bounds = genome.chrom.find(intv.start, intv.stop).next().unwrap();
-    let new_pos: u64 = rng.gen_range(bounds.start..(bounds.stop - span));
+    let new_pos: u64 = rand.next_range(bounds.start..(bounds.stop - span));
     let new_end: u64 = new_pos + span;
     return (new_pos, new_end);
 }
@@ -65,16 +67,16 @@ fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chro
 
 
 fn circle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom: bool) -> Lapper<u64, u64> {
+    let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     let mut ret = Vec::<io::Iv>::new();
-    let mut rng = rand::thread_rng();
 
     let mut shift_lookup = HashMap::<u64, u64>::new();
-    let genome_shift: u64 = rng.gen_range(0..(genome.span));
+    let genome_shift: u64 = rand.next_range(0..(genome.span));
     for i in genome.chrom.iter() {
         if per_chrom {
-            shift_lookup.insert(i.start, rng.gen_range(0..i.val));
+            shift_lookup.insert(i.start.clone(), rand.next_range(0..i.val));
         } else {
-            shift_lookup.insert(i.start, genome_shift.clone());
+            shift_lookup.insert(i.start.clone(), genome_shift.clone());
         }
     }
     
