@@ -1,16 +1,17 @@
 extern crate pretty_env_logger;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
-use std::thread;
 use std::fs::File;
 use std::io::prelude::*;
+use std::thread;
 
-use tinyrand::{Rand, StdRand, Seeded, RandRange};
+use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
 
 use clap::Parser;
-use rust_lapper::{Lapper};
-use serde_json::{json};
+use rust_lapper::Lapper;
+use serde_json::json;
 
 mod cli;
 mod io;
@@ -19,70 +20,99 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
     let n = v.len() as f64;
     let mean = v.iter().sum::<u64>() as f64 / n;
 
-    let variance = v.iter()
-        .map(|x| (*x as f64 - mean).powi(2))
-        .sum::<f64>() / n;
+    let variance = v.iter().map(|x| (*x as f64 - mean).powi(2)).sum::<f64>() / n;
 
     let std_dev = variance.sqrt();
 
     (mean, std_dev)
 }
 
-/* 
+/*
   Randomizers
 */
-fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom: bool) -> Lapper<u64, u64> {
+fn shuffle_intervals(
+    intv: &Lapper<u64, u64>,
+    genome: &io::GenomeShift,
+    per_chrom: bool,
+) -> Lapper<u64, u64> {
     let mut ret = Vec::<io::Iv>::new();
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
 
     for i in intv.iter() {
-        let (lower, upper) = if per_chrom { match genome.chrom.find(i.start, i.stop).next() {
-                                                Some(b) => (b.start, b.stop),
-                                                None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop) }
-                            } else { (0, genome.span) };
+        let (lower, upper) = if per_chrom {
+            match genome.chrom.find(i.start, i.stop).next() {
+                Some(b) => (b.start, b.stop),
+                None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop),
+            }
+        } else {
+            (0, genome.span)
+        };
         let span = i.start - i.stop;
         let shift = rand.next_range(lower..(upper - span));
-        ret.push(io::Iv{start: i.start + shift,
-                        stop: i.stop + shift,
-                        val: 0});
+        ret.push(io::Iv {
+            start: i.start + shift,
+            stop: i.stop + shift,
+            val: 0,
+        });
     }
     ret.sort();
     let mut ret = Lapper::<u64, u64>::new(ret);
     ret.merge_overlaps();
-    return ret;
+
+    ret
 }
 
-
-fn circle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom: bool) -> Lapper<u64, u64> {
+fn circle_intervals(
+    intv: &Lapper<u64, u64>,
+    genome: &io::GenomeShift,
+    per_chrom: bool,
+) -> Lapper<u64, u64> {
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     let mut ret = Vec::<io::Iv>::new();
 
     let genome_shift: u64 = rand.next_range(0..(genome.span));
-    
+
     for i in intv.iter() {
-        let (lower, upper, shift) = if per_chrom { match genome.chrom.find(i.start, i.stop).next() {
-                                                       Some(b) => (b.start, b.stop, genome_shift % b.val),
-                                                       None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop) }
-                                   } else { (0, genome.span, genome_shift) };
+        let (lower, upper, shift) = if per_chrom {
+            match genome.chrom.find(i.start, i.stop).next() {
+                Some(b) => (b.start, b.stop, genome_shift % b.val),
+                None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop),
+            }
+        } else {
+            (0, genome.span, genome_shift)
+        };
 
         let new_start: u64 = i.start + shift;
         let new_end: u64 = i.stop + shift;
 
         if new_start >= upper {
-            ret.push(io::Iv{start: new_start - upper,
-                            stop: new_end - upper, val: 0});
+            ret.push(io::Iv {
+                start: new_start - upper,
+                stop: new_end - upper,
+                val: 0,
+            });
         } else if new_end > upper {
-            ret.push(io::Iv{start: new_start,
-                            stop: upper, val: 0});
-            ret.push(io::Iv{start: lower,
-                            stop: new_end - upper, val: 0});
+            ret.push(io::Iv {
+                start: new_start,
+                stop: upper,
+                val: 0,
+            });
+            ret.push(io::Iv {
+                start: lower,
+                stop: new_end - upper,
+                val: 0,
+            });
         } else {
-            ret.push(io::Iv{start: new_start,
-                            stop: new_end, val: 0});
+            ret.push(io::Iv {
+                start: new_start,
+                stop: new_end,
+                val: 0,
+            });
         }
     }
     ret.sort();
-    return Lapper::<u64, u64>::new(ret);
+
+    Lapper::<u64, u64>::new(ret)
 }
 
 /*
@@ -95,7 +125,8 @@ fn get_num_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> 
     for i in a_lap.iter() {
         inter_cnt += b_lap.seek(i.start, i.stop, &mut cursor).count() as u64;
     }
-    return inter_cnt;
+
+    inter_cnt
 }
 
 fn get_any_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> u64 {
@@ -106,9 +137,9 @@ fn get_any_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> 
             inter_cnt += 1;
         }
     }
-    return inter_cnt;
-}
 
+    inter_cnt
+}
 
 fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
     let mut g_count: f64 = 0.0;
@@ -121,23 +152,24 @@ fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
             g_count += if o_count <= *i { 1.0 } else { 0.0 };
         }
     }
-    return g_count
+
+    g_count
 }
 
 fn main() -> std::io::Result<()> {
     // ToDo - Debug?
-    pretty_env_logger::formatted_timed_builder().filter_level(log::LevelFilter::Info).init();
+    pretty_env_logger::formatted_timed_builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
 
     let args = cli::ArgParser::parse();
     if !cli::validate_args(&args) {
         error!("please fix arguments");
         std::process::exit(1);
     }
-    
-    let mask = match args.mask {
-        Some(p) => Some(io::read_mask(&p)),
-        None => None
-    };
+
+    // This is a manual implementation of map `match args.mask { Some(p) => Some(io::read_mask(&p)), None => None }`
+    let mask = args.mask.map(|p| io::read_mask(&p));
 
     let genome = io::read_genome(&args.genome, &mask);
 
@@ -152,15 +184,18 @@ fn main() -> std::io::Result<()> {
         #[allow(unused_variables)]
         let (a_lapper, b_lapper) = (b_lapper.clone(), a_lapper.clone());
     }
-    
-    
-    let overlapper = if args.any { get_any_overlap_count } else { get_num_overlap_count };
+
+    let overlapper = if args.any {
+        get_any_overlap_count
+    } else {
+        get_num_overlap_count
+    };
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
     info!("{} intersections", initial_overlap_count);
-    
+
     let mut handles = Vec::new();
-    let chunk_size:u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
-    
+    let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
+
     for i in 0..args.threads {
         let m_a = a_lapper.clone();
         let m_b = b_lapper.clone();
@@ -173,10 +208,13 @@ fn main() -> std::io::Result<()> {
         let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
         let m_range = start_iter..stop_iter;
         let handle = thread::spawn(move || {
-            let mut m_counts:Vec<u64> = vec![];
+            let mut m_counts: Vec<u64> = vec![];
             for _j in m_range {
-                let new_intv = if args.circle { circle_intervals(&m_a, &m_genome, args.per_chrom) }
-                               else { shuffle_intervals(&m_a, &m_genome, args.per_chrom) };
+                let new_intv = if args.circle {
+                    circle_intervals(&m_a, &m_genome, args.per_chrom)
+                } else {
+                    shuffle_intervals(&m_a, &m_genome, args.per_chrom)
+                };
                 m_counts.push(overlapper(&new_intv, &m_b));
             }
             m_counts
@@ -184,7 +222,7 @@ fn main() -> std::io::Result<()> {
         handles.push(handle);
     }
 
-    let mut all_counts:Vec<u64> = vec![];
+    let mut all_counts: Vec<u64> = vec![];
     for handle in handles {
         let result = handle.join().unwrap();
         all_counts.extend(result);
@@ -194,7 +232,11 @@ fn main() -> std::io::Result<()> {
     info!("perm mu: {}", mu);
     info!("perm sd: {}", sd);
 
-    let alt = if (initial_overlap_count as f64) < mu {'l'} else {'g'};
+    let alt = if (initial_overlap_count as f64) < mu {
+        'l'
+    } else {
+        'g'
+    };
     info!("alt : {}", alt);
     let g_count = count_permutations(initial_overlap_count, &all_counts, alt);
     let p_val = (g_count + 1.0) / ((all_counts.len() as f64) + 1.0);
@@ -207,7 +249,7 @@ fn main() -> std::io::Result<()> {
         z_score = ((initial_overlap_count as f64) - mu) / sd;
     }
 
-    let data = json!({"pval": p_val, 
+    let data = json!({"pval": p_val,
                       "zscore": z_score,
                       "obs":initial_overlap_count,
                       "perm_mu": mu,
