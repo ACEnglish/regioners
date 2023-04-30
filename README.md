@@ -94,18 +94,17 @@ Cites:
 
 ## Performance Test
 
-Days are pseudo-versioning based on end of development day numbers.
+Days are pseudo-versioning based on end of development day testing.
+
+Day2 test of 1,000 permutations on 16,661 (transcripts) regions intersection with 1,784,804 (TRs) on 4 cores.
+- regione_rust : 166.146s
+- regione_rust --per-chrom : 159.038s
+- regione_rust --per-chrom --circle : 91.231s
+- regione_rust --circle : 62.246s
 
 Day1 test of 100 permutations on 29,598 regions intersection with 1,784,804 on 4 cores.
 - regioneR : 1292.313s
 - regione_rust (no params) : 641.454s
-
-Day2 test of 1,000 permutations on 16,661 regions intersection with 1,784,804 on 4 cores.
-- regione_rust --circle : 62.246s
-- regione_rust --per-chrom --circle : 91.231s
-- regione_rust --per-chrom : 159.038s
-- regione_rust : 166.146s
-
 
 ## ToDos:
 
