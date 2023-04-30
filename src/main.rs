@@ -31,30 +31,20 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
 /* 
   Randomizers
 */
-fn shuffle_whole_genome(intv: &io::Iv, genome: &io::GenomeShift, rand: &mut StdRand) -> (u64, u64) {
-    let span = intv.stop - intv.start;
-    let new_pos: u64 = rand.next_range(0..(genome.span - span));
-    let new_end: u64 = new_pos + span;
-    return (new_pos, new_end);
-}
-
-fn shuffle_per_chrom(intv: &io::Iv, genome: &io::GenomeShift, rand: &mut StdRand) -> (u64, u64) {
-    let span = intv.stop - intv.start;
-    // Just assume it'll be one
-    let bounds = genome.chrom.find(intv.start, intv.stop).next().unwrap();
-    let new_pos: u64 = rand.next_range(bounds.start..(bounds.stop - span));
-    let new_end: u64 = new_pos + span;
-    return (new_pos, new_end);
-}
-
 fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom: bool) -> Lapper<u64, u64> {
     let mut ret = Vec::<io::Iv>::new();
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
 
     for i in intv.iter() {
-        let (new_pos, new_end) = if per_chrom { shuffle_per_chrom(&i, &genome, &mut rand) }
-                                 else { shuffle_whole_genome(&i, &genome, &mut rand) };
-        ret.push(io::Iv{start: new_pos, stop: new_end, val: 0});
+        let (lower, upper) = if per_chrom { match genome.chrom.find(i.start, i.stop).next() {
+                                                Some(b) => (b.start, b.stop),
+                                                None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop) }
+                            } else { (0, genome.span) };
+        let span = i.start - i.stop;
+        let shift = rand.next_range(lower..(upper - span));
+        ret.push(io::Iv{start: i.start + shift,
+                        stop: i.stop + shift,
+                        val: 0});
     }
     ret.sort();
     let mut ret = Lapper::<u64, u64>::new(ret);
@@ -70,19 +60,25 @@ fn circle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom
     let genome_shift: u64 = rand.next_range(0..(genome.span));
     
     for i in intv.iter() {
-        let bounds = genome.chrom.find(i.start, i.stop).next().unwrap();
-        let (min_start, max_end, m_shift) = if per_chrom { (bounds.start, genome.span, genome_shift % bounds.val) }
-                                            else { (0, genome.span, genome_shift) };
-        let new_start: u64 = i.start + m_shift;
-        let new_end: u64 = i.stop + m_shift;
+        let (lower, upper, shift) = if per_chrom { match genome.chrom.find(i.start, i.stop).next() {
+                                                       Some(b) => (b.start, b.stop, genome_shift % b.val),
+                                                       None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop) }
+                                   } else { (0, genome.span, genome_shift) };
 
-        if new_start >= max_end {
-            ret.push(io::Iv{start: new_start - max_end, stop: new_end - max_end, val: 0});
-        } else if new_end > max_end {
-            ret.push(io::Iv{start: new_start, stop: max_end, val: 0});
-            ret.push(io::Iv{start: min_start, stop: new_end - max_end, val: 0});
+        let new_start: u64 = i.start + shift;
+        let new_end: u64 = i.stop + shift;
+
+        if new_start >= upper {
+            ret.push(io::Iv{start: new_start - upper,
+                            stop: new_end - upper, val: 0});
+        } else if new_end > upper {
+            ret.push(io::Iv{start: new_start,
+                            stop: upper, val: 0});
+            ret.push(io::Iv{start: lower,
+                            stop: new_end - upper, val: 0});
         } else {
-            ret.push(io::Iv{start: new_start, stop: new_end, val: 0});
+            ret.push(io::Iv{start: new_start,
+                            stop: new_end, val: 0});
         }
     }
     ret.sort();

@@ -97,6 +97,12 @@ Cites:
 Days are pseudo-versioning based on end of development day testing.
 
 Day2 test of 1,000 permutations on 29,598 (epd promoters) regions intersection with 1,784,804 (TRs) on 4 cores.
+- regione_rust : Im guessing 133.417s
+- regione_rust --per-chrom : 121.620s 2m11s
+- regione_rust --per-chrom --circle : 1m2.301s
+- regione_rust --circle : 34.439s
+
+Day2 test of 1,000 permutations on 29,598 (epd promoters) regions intersection with 1,784,804 (TRs) on 4 cores.
 - regione_rust : 169.400s
 - regione_rust --per-chrom : 158.159s
 - regione_rust --per-chrom --circle : 55.629s
@@ -123,6 +129,18 @@ The output is a json with structure:
 Using python with seaborn:
 ```python
 data = json.load(open("regione_rust_output.json"))
+# 
+p = sb.histplot(data=data, x="perms",
+		color='gray', edgecolor='gray', kde=False, stat='density')
+p = sb.kdeplot(data=data, x="perms",
+		color='black', ax=p)
+
+x = data['obs']
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.9)
+plt.axvline(x, color='blue')
+plt.text(x, y, 'observed intersections',rotation=90, bbox=props, ma='center')
+p.set(xlabel="Intersection Count", ylabel="Permutation Density")
+
 p = sb.histplot(data=data['perms'])
 x = data['obs']
 y = p.get_ylim()[1] // 2 - 20
