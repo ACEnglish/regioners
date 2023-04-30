@@ -106,6 +106,33 @@ Day1 test of 100 permutations on 29,598 regions intersection with 1,784,804 on 4
 - regioneR : 1292.313s
 - regione_rust (no params) : 641.454s
 
+## Output
+
+The output is a json with structure:
+- alt : (l)ess or (g)reater alternate hypothesis used
+- n : number of permutations performed
+- obs : observed number of intersections
+- perm_mu : permutations' mean
+- perm_sd : permutations' standard deviation
+- perms : permutations' number of intersections
+- pval : permutation test's p-value
+- zscore : permutation test's zscore
+
+## Plotting
+
+Using python with seaborn:
+```python
+data = json.load(open("regione_rust_output.json"))
+p = sb.histplot(data=data['perms'])
+x = data['obs']
+y = p.get_ylim()[1] // 2 - 20
+plt.axvline(x)
+plt.text(x - 150, y, 'observed intersections',rotation=90)
+```
+
+<img src="img_girl.jpg" alt="Girl in a jacket" style="width:250px;">
+
+
 ## ToDos:
 
 - implement `--no-overlaps` (will require `--max-retry`)
