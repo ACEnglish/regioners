@@ -4,6 +4,7 @@ extern crate pretty_env_logger;
 use std::thread;
 use std::fs::File;
 use std::io::prelude::*;
+use std::collections::HashMap;
 
 use rand::Rng;
 use clap::Parser;
@@ -26,6 +27,81 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
     (mean, std_dev)
 }
 
+/* 
+  Randomizers
+*/
+fn shuffle_whole_genome(intv: &io::Iv, genome: &io::GenomeShift) -> (u64, u64) {
+    let mut rng = rand::thread_rng();
+    let span = intv.stop - intv.start;
+    let new_pos: u64 = rng.gen_range(0..(genome.span - span));
+    let new_end: u64 = new_pos + span;
+    return (new_pos, new_end);
+}
+
+fn shuffle_per_chrom(intv: &io::Iv, genome: &io::GenomeShift) -> (u64, u64) {
+    let mut rng = rand::thread_rng();
+    let span = intv.stop - intv.start;
+    // Just assume it'll be one
+    let bounds = genome.chrom.find(intv.start, intv.stop).next().unwrap();
+    let new_pos: u64 = rng.gen_range(bounds.start..(bounds.stop - span));
+    let new_end: u64 = new_pos + span;
+    return (new_pos, new_end);
+}
+
+fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom: bool) -> Lapper<u64, u64> {
+    // let mut ret = Lapper::<u64, u64>::new(Vec::<io::Iv>::new());
+    let mut ret = Vec::<io::Iv>::new();
+
+    for i in intv.iter() {
+        let (new_pos, new_end) = if per_chrom { shuffle_per_chrom(&i, &genome) }
+                                 else { shuffle_whole_genome(&i, &genome) };
+        ret.push(io::Iv{start: new_pos, stop: new_end, val: 0});
+    }
+    ret.sort();
+    let mut ret = Lapper::<u64, u64>::new(ret);
+    ret.merge_overlaps();
+    return ret;
+}
+
+
+fn circle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom: bool) -> Lapper<u64, u64> {
+    let mut ret = Vec::<io::Iv>::new();
+    let mut rng = rand::thread_rng();
+
+    let mut shift_lookup = HashMap::<u64, u64>::new();
+    let genome_shift: u64 = rng.gen_range(0..(genome.span));
+    for i in genome.chrom.iter() {
+        if per_chrom {
+            shift_lookup.insert(i.start, rng.gen_range(0..i.val));
+        } else {
+            shift_lookup.insert(i.start, genome_shift.clone());
+        }
+    }
+    
+    for i in intv.iter() {
+        let bounds = genome.chrom.find(i.start, i.stop).next().unwrap();
+        let shift = shift_lookup[&bounds.start];
+        let min_start = if per_chrom { bounds.start } else { 0 };
+        let max_end = if per_chrom { bounds.stop } else { genome.span };
+        let new_start: u64 = i.start + shift;
+        let new_end: u64 = i.stop + shift;
+        if new_start >= max_end {
+            ret.push(io::Iv{start: new_start - max_end, stop: new_end - max_end, val: 0});
+        } else if new_end > max_end {
+            ret.push(io::Iv{start: new_start, stop: max_end, val: 0});
+            ret.push(io::Iv{start: min_start, stop: new_end - max_end, val: 0});
+        } else {
+            ret.push(io::Iv{start: new_start, stop: new_end, val: 0});
+        }
+    }
+    ret.sort();
+    return Lapper::<u64, u64>::new(ret);
+}
+
+/*
+  Overlapers
+*/
+
 fn get_num_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> u64 {
     let mut inter_cnt: u64 = 0;
     let mut cursor = 0;
@@ -39,37 +115,13 @@ fn get_any_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> 
     let mut inter_cnt: u64 = 0;
     let mut cursor = 0;
     for i in a_lap.iter() {
-        inter_cnt += if b_lap.seek(i.start, i.stop, &mut cursor).count() == 0 {0} else {1}
+        if b_lap.seek(i.start, i.stop, &mut cursor).next().is_some() {
+            inter_cnt += 1;
+        }
     }
     return inter_cnt;
 }
 
-fn shuffle_intervals(intv: &Lapper<u64, u64>, genome_size: u64, no_overlap: bool, max_retry: u64) -> Lapper<u64, u64> {
-    let mut ret: Vec<io::Iv> = vec![];
-    let mut rng = rand::thread_rng();
-
-    for i in intv.iter() {
-        let mut is_placed = false;
-        let span = i.stop - i.start;
-        let max_end = genome_size - span;
-        let mut attempt:u64 = 0;
-        while !is_placed & (attempt < max_retry) { // Should maybe have a max-tries so we don't hang here forever...
-            let new_pos: u64 = rng.gen_range(0..max_end);
-            let new_end: u64 = new_pos + span;
-            // allow overlaps or check there are none
-            if !no_overlap | (intv.find(new_pos, new_pos + span).count() == 0) {
-                ret.push(io::Iv{start: new_pos, stop: new_end, val: 0});
-                is_placed = true;
-            }
-            attempt += 1;
-        }
-        if !is_placed { // warn we couldn't put it in the interval
-            error!("Unable to shuffle region. Result corrupt. Try again, increase --max-retry, or turn off --no-overlap");
-        }
-    }
-    ret.sort();
-    return Lapper::new(ret);
-}
 
 fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
     let mut g_count: f64 = 0.0;
@@ -94,11 +146,19 @@ fn main() -> std::io::Result<()> {
         error!("please fix arguments");
         std::process::exit(1);
     }
+    
+    let mask = match args.mask {
+        Some(p) => Some(io::read_mask(&p)),
+        None => None
+    };
 
-    let (genome, genome_size) = io::read_genome(&args.genome);
+    let genome = io::read_genome(&args.genome, &mask);
 
-    let a_lapper = io::read_bed(&args.bed_a, &genome);
-    let b_lapper = io::read_bed(&args.bed_b, &genome);
+    let mut a_lapper = io::read_bed(&args.bed_a, &genome, &mask);
+    let mut b_lapper = io::read_bed(&args.bed_b, &genome, &mask);
+    info!("merging overlaps");
+    a_lapper.merge_overlaps();
+    b_lapper.merge_overlaps();
 
     if !args.no_swap & (a_lapper.len() > b_lapper.len()) {
         info!("swapping A for shorter B");
@@ -108,20 +168,18 @@ fn main() -> std::io::Result<()> {
     
     
     let overlapper = if args.any { get_any_overlap_count } else { get_num_overlap_count };
-    //let randomizer = if args.circularize { circularize_intervals } else { shuffle_intervals };
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
-
     info!("{} intersections", initial_overlap_count);
     
     let mut handles = Vec::new();
     let chunk_size:u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
     
     for i in 0..args.threads {
-        let m_alap_copy = a_lapper.clone();
-        let m_blap_copy = b_lapper.clone();
-        let m_gs_copy = genome_size.clone();
-        let m_ovl_arg = args.no_overlaps.clone();
-        let m_mr_copy = args.max_retry.clone();
+        let m_a = a_lapper.clone();
+        let m_b = b_lapper.clone();
+        let m_genome = genome.clone();
+        // let m_ovl_arg = args.no_overlaps.clone();
+        // let m_mxr_arg = args.max_retry.clone();
 
         // There's got to be a better way
         let start_iter = (i as u32) * chunk_size;
@@ -130,9 +188,9 @@ fn main() -> std::io::Result<()> {
         let handle = thread::spawn(move || {
             let mut m_counts:Vec<u64> = vec![];
             for _j in m_range {
-                // randomizer
-                let new_intv = shuffle_intervals(&m_alap_copy, m_gs_copy, m_ovl_arg, m_mr_copy);
-                m_counts.push(overlapper(&new_intv, &m_blap_copy));
+                let new_intv = if args.circle { circle_intervals(&m_a, &m_genome, args.per_chrom) }
+                               else { shuffle_intervals(&m_a, &m_genome, args.per_chrom) };
+                m_counts.push(overlapper(&new_intv, &m_b));
             }
             m_counts
         });
@@ -154,9 +212,16 @@ fn main() -> std::io::Result<()> {
     let g_count = count_permutations(initial_overlap_count, &all_counts, alt);
     let p_val = (g_count + 1.0) / ((all_counts.len() as f64) + 1.0);
     info!("p-val : {}", p_val);
-    
+
+    let mut z_score = 0.0;
+    if (initial_overlap_count == 0) & (mu == 0.0) {
+        warn!("z_score cannot be computed");
+    } else {
+        z_score = ((initial_overlap_count as f64) - mu) / sd;
+    }
+
     let data = json!({"pval": p_val, 
-                      "zscore": ((initial_overlap_count as f64) - mu) / sd,
+                      "zscore": z_score,
                       "obs":initial_overlap_count,
                       "perm_mu": mu,
                       "perm_sd": sd,

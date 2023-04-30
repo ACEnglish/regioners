@@ -34,21 +34,33 @@ pub struct ArgParser {
     #[arg(long)]
     pub mask: Option<std::path::PathBuf>,
 
-    /// count any overlap instead of number of overlaps
-    #[arg(long, default_value_t = false)]
-    pub any: bool,
-    
-    /// don't allow overlapping entries during randomization
-    #[arg(long = "no-overlap", default_value_t = false)]
-    pub no_overlaps: bool,
-
     /// do not swap A and B
     #[arg(long = "no-swap", default_value_t = false)]
     pub no_swap: bool,
 
+    /// count any overlap instead of number of overlaps
+    #[arg(long, default_value_t = false)]
+    pub any: bool,
+    
+    /* Depricated for Day 2
+    /// don't allow overlapping entries during randomization
+    #[arg(long = "no-overlap", default_value_t = false)]
+    pub no_overlaps: bool,
+    */
+
+    /// randomize regions within each chromosome
+    #[arg(long = "per-chrom", default_value_t = false)]
+    pub per_chrom: bool,
+
+    /// use circularization for randomization
+    #[arg(long, default_value_t = false)]
+    pub circle: bool,
+
+    /* Depricated for Day 2
     /// maximum randomization retries before fail
-    #[arg(long = "max-retry", default_value_t = 50)]
+    #[arg(long = "max-retry", default_value_t = 250)]
     pub max_retry: u64
+    */
 }
 
 pub fn validate_args(args: &ArgParser) -> bool {
@@ -65,7 +77,7 @@ pub fn validate_args(args: &ArgParser) -> bool {
         error!("--genome file doesn't exist");
         is_ok = false;
     }
-    /*if !args.mask.is_file() {
+    /*if !args.mask.is_file() { an optional so, if it is there I have to check it..
         error!("--mask file doesn't exist");
         is_ok = false;
     }*/
