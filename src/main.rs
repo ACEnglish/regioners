@@ -27,14 +27,17 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
     (mean, std_dev)
 }
 
-/*
-  Randomizers
-*/
+// ***********
+// Randomizers
+// ***********
 fn shuffle_intervals(
     intv: &Lapper<u64, u64>,
     genome: &io::GenomeShift,
     per_chrom: bool,
 ) -> Lapper<u64, u64> {
+    /*
+        Randomly move each interval to new position
+    */
     let mut ret = Vec::<io::Iv>::new();
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
 
@@ -67,6 +70,9 @@ fn circle_intervals(
     genome: &io::GenomeShift,
     per_chrom: bool,
 ) -> Lapper<u64, u64> {
+    /*
+        Randomly shift all intervals downstream with wrap-around
+    */
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     let mut ret = Vec::<io::Iv>::new();
 
@@ -115,25 +121,31 @@ fn circle_intervals(
     Lapper::<u64, u64>::new(ret)
 }
 
-/*
-  Overlapers
-*/
+
+// **********
+// Overlapers
+// **********
+
 
 fn get_num_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> u64 {
+    /*
+        Return number of b intervals intersecting each of a's intervals
+    */
     let mut inter_cnt: u64 = 0;
-    let mut cursor = 0;
     for i in a_lap.iter() {
-        inter_cnt += b_lap.seek(i.start, i.stop, &mut cursor).count() as u64;
+        inter_cnt += b_lap.find(i.start, i.stop).count() as u64;
     }
 
     inter_cnt
 }
 
 fn get_any_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> u64 {
+    /*
+        Return number of a intervals intersecting b intervals
+    */
     let mut inter_cnt: u64 = 0;
-    let mut cursor = 0;
     for i in a_lap.iter() {
-        if b_lap.seek(i.start, i.stop, &mut cursor).next().is_some() {
+        if b_lap.find(i.start, i.stop).next().is_some() {
             inter_cnt += 1;
         }
     }
@@ -142,6 +154,9 @@ fn get_any_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> 
 }
 
 fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
+    /*
+        Return number of permutations the observed count is (g)reater or (l)ess than
+    */
     let mut g_count: f64 = 0.0;
     if alt == 'l' {
         for i in obs {
@@ -178,11 +193,13 @@ fn main() -> std::io::Result<()> {
     info!("merging overlaps");
     a_lapper.merge_overlaps();
     b_lapper.merge_overlaps();
-
+    
+    let mut was_swapped = false;
     if !args.no_swap & (a_lapper.len() > b_lapper.len()) {
         info!("swapping A for shorter B");
         #[allow(unused_variables)]
         let (a_lapper, b_lapper) = (b_lapper.clone(), a_lapper.clone());
+        was_swapped = true;
     }
 
     let overlapper = if args.any {
@@ -256,6 +273,12 @@ fn main() -> std::io::Result<()> {
                       "perm_sd": sd,
                       "alt": alt,
                       "n": args.num_times,
+                      "swapped": was_swapped,
+                      "A_cnt" : a_lapper.len(),
+                      "B_cnt" : b_lapper.len(),
+                      "any": args.any,
+                      "per_chrom": args.per_chrom,
+                      "circle": args.circle,
                       "perms": all_counts});
     let json_str = serde_json::to_string(&data).unwrap();
 
