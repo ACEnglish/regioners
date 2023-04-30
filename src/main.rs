@@ -197,8 +197,7 @@ fn main() -> std::io::Result<()> {
     let mut was_swapped = false;
     if !args.no_swap & (a_lapper.len() > b_lapper.len()) {
         info!("swapping A for shorter B");
-        #[allow(unused_variables)]
-        let (a_lapper, b_lapper) = (b_lapper.clone(), a_lapper.clone());
+        std::mem::swap(&mut a_lapper, &mut b_lapper);
         was_swapped = true;
     }
 

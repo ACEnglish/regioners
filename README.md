@@ -94,23 +94,24 @@ Cites:
 
 ## Performance Test
 
-Days are pseudo-versioning based on end of development day testing.
+Test of 1,000 permutations on 29,598 epd promoters regions intersection with 1,784,804 TRs using 4 cores.
 
-Day3 test of 1,000 permutations on 29,598 epd promoters regions intersection with 1,784,804 TRs using 4 cores.
-- regione_rust (defaults) : 141.394s
-- regione_rust --per-chrom : 128.279s
-- regione_rust --per-chrom --circle : 60.475s
-- regione_rust --circle : 36.826s
+Docker file running ubuntu:latest
+- regione_rust (defaults) : 3.887s
+- regione_rust --per-chrom : 3.702s
+- regione_rust --per-chrom --circle : 3.107s
+- regione_rust --circle : 3.327s
 
-Day2 test of 1,000 permutations on 29,598 (epd promoters) regions intersection with 1,784,804 (TRs) on 4 cores.
-- regione_rust : 169.400s
-- regione_rust --per-chrom : 158.159s
-- regione_rust --per-chrom --circle : 55.629s
-- regione_rust --circle : 44.529s
 
-Day1 test of 100 permutations on 29,598 regions intersection with 1,784,804 on 4 cores.
+Mac build target x86_64-apple-darwin
+- regione_rust (defaults) : 3.210s
+- regione_rust --per-chrom : 3.547s
+- regione_rust --per-chrom --circle : 3.210s
+- regione_rust --circle : 3.413s
+
+
+Day1 regioneR test of 100 permutations on above data in Rstudio docker.
 - regioneR : 1292.313s
-- regione_rust (no params) : 641.454s
 
 ## Output
 
@@ -129,7 +130,6 @@ The output is a json with structure:
 Using python with seaborn:
 ```python
 data = json.load(open("regione_rust_output.json"))
-# 
 p = sb.histplot(data=data, x="perms",
 		color='gray', edgecolor='gray', kde=False, stat='density')
 p = sb.kdeplot(data=data, x="perms",
@@ -140,12 +140,6 @@ props = dict(boxstyle='round', facecolor='wheat', alpha=0.9)
 plt.axvline(x, color='blue')
 plt.text(x, y, 'observed intersections',rotation=90, bbox=props, ma='center')
 p.set(xlabel="Intersection Count", ylabel="Permutation Density")
-
-p = sb.histplot(data=data['perms'])
-x = data['obs']
-y = p.get_ylim()[1] // 2 - 20
-plt.axvline(x)
-plt.text(x - 150, y, 'observed intersections',rotation=90)
 ```
 
 <img src="https://raw.githubusercontent.com/ACEnglish/regione_rust/main/figs/example_plot.png" alt="Girl in a jacket" style="width:250px;">
