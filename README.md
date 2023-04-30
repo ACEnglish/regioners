@@ -130,7 +130,7 @@ plt.axvline(x)
 plt.text(x - 150, y, 'observed intersections',rotation=90)
 ```
 
-<img src="img_girl.jpg" alt="Girl in a jacket" style="width:250px;">
+<img src="https://raw.githubusercontent.com/ACEnglish/regione_rust/main/figs/example_plot.png" alt="Girl in a jacket" style="width:250px;">
 
 
 ## ToDos:
