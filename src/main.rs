@@ -4,7 +4,6 @@ extern crate pretty_env_logger;
 use std::thread;
 use std::fs::File;
 use std::io::prelude::*;
-use std::collections::HashMap;
 
 use tinyrand::{Rand, StdRand, Seeded, RandRange};
 use tinyrand_std::clock_seed::ClockSeed;
@@ -32,16 +31,14 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
 /* 
   Randomizers
 */
-fn shuffle_whole_genome(intv: &io::Iv, genome: &io::GenomeShift) -> (u64, u64) {
-    let mut rand = StdRand::seed(ClockSeed::default().next_u64());
+fn shuffle_whole_genome(intv: &io::Iv, genome: &io::GenomeShift, rand: &mut StdRand) -> (u64, u64) {
     let span = intv.stop - intv.start;
     let new_pos: u64 = rand.next_range(0..(genome.span - span));
     let new_end: u64 = new_pos + span;
     return (new_pos, new_end);
 }
 
-fn shuffle_per_chrom(intv: &io::Iv, genome: &io::GenomeShift) -> (u64, u64) {
-    let mut rand = StdRand::seed(ClockSeed::default().next_u64());
+fn shuffle_per_chrom(intv: &io::Iv, genome: &io::GenomeShift, rand: &mut StdRand) -> (u64, u64) {
     let span = intv.stop - intv.start;
     // Just assume it'll be one
     let bounds = genome.chrom.find(intv.start, intv.stop).next().unwrap();
@@ -51,12 +48,12 @@ fn shuffle_per_chrom(intv: &io::Iv, genome: &io::GenomeShift) -> (u64, u64) {
 }
 
 fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom: bool) -> Lapper<u64, u64> {
-    // let mut ret = Lapper::<u64, u64>::new(Vec::<io::Iv>::new());
     let mut ret = Vec::<io::Iv>::new();
+    let mut rand = StdRand::seed(ClockSeed::default().next_u64());
 
     for i in intv.iter() {
-        let (new_pos, new_end) = if per_chrom { shuffle_per_chrom(&i, &genome) }
-                                 else { shuffle_whole_genome(&i, &genome) };
+        let (new_pos, new_end) = if per_chrom { shuffle_per_chrom(&i, &genome, &mut rand) }
+                                 else { shuffle_whole_genome(&i, &genome, &mut rand) };
         ret.push(io::Iv{start: new_pos, stop: new_end, val: 0});
     }
     ret.sort();
@@ -70,23 +67,15 @@ fn circle_intervals(intv: &Lapper<u64, u64>, genome: &io::GenomeShift, per_chrom
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     let mut ret = Vec::<io::Iv>::new();
 
-    let mut shift_lookup = HashMap::<u64, u64>::new();
     let genome_shift: u64 = rand.next_range(0..(genome.span));
-    for i in genome.chrom.iter() {
-        if per_chrom {
-            shift_lookup.insert(i.start.clone(), rand.next_range(0..i.val));
-        } else {
-            shift_lookup.insert(i.start.clone(), genome_shift.clone());
-        }
-    }
     
     for i in intv.iter() {
         let bounds = genome.chrom.find(i.start, i.stop).next().unwrap();
-        let shift = shift_lookup[&bounds.start];
-        let min_start = if per_chrom { bounds.start } else { 0 };
-        let max_end = if per_chrom { bounds.stop } else { genome.span };
-        let new_start: u64 = i.start + shift;
-        let new_end: u64 = i.stop + shift;
+        let (min_start, max_end, m_shift) = if per_chrom { (bounds.start, genome.span, genome_shift % bounds.val) }
+                                            else { (0, genome.span, genome_shift) };
+        let new_start: u64 = i.start + m_shift;
+        let new_end: u64 = i.stop + m_shift;
+
         if new_start >= max_end {
             ret.push(io::Iv{start: new_start - max_end, stop: new_end - max_end, val: 0});
         } else if new_end > max_end {

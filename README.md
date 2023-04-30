@@ -96,11 +96,11 @@ Cites:
 
 Days are pseudo-versioning based on end of development day testing.
 
-Day2 test of 1,000 permutations on 16,661 (transcripts) regions intersection with 1,784,804 (TRs) on 4 cores.
-- regione_rust : 166.146s
-- regione_rust --per-chrom : 159.038s
-- regione_rust --per-chrom --circle : 91.231s
-- regione_rust --circle : 62.246s
+Day2 test of 1,000 permutations on 29,598 (epd promoters) regions intersection with 1,784,804 (TRs) on 4 cores.
+- regione_rust : 169.400s
+- regione_rust --per-chrom : 158.159s
+- regione_rust --per-chrom --circle : 55.629s
+- regione_rust --circle : 44.529s
 
 Day1 test of 100 permutations on 29,598 regions intersection with 1,784,804 on 4 cores.
 - regioneR : 1292.313s
