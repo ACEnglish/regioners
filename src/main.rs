@@ -2,6 +2,7 @@ extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::thread;
@@ -39,16 +40,13 @@ fn shuffle_intervals(
         } else {
             (0, genome.span)
         };
-        let span = i.stop - i.start;
-        let shift = rand.next_range(lower..(upper - span));
+        let shift = rand.next_range(lower..(upper - (i.stop - i.start)));
         ret.push(io::Iv {
             start: i.start + shift,
             stop: i.stop + shift,
             val: 0,
         });
     }
-    ret.sort();
-
     Lapper::<u64, u64>::new(ret)
 }
 
@@ -103,22 +101,60 @@ fn circle_intervals(
             });
         }
     }
-    ret.sort();
-
     Lapper::<u64, u64>::new(ret)
 }
 
-/*
 fn novl_intervals(
     intv: &Lapper<u64, u64>,
     genome: &io::GenomeShift,
     per_chrom: bool,
 ) -> Lapper<u64, u64> {
     /*
-        Randomly move each interval to new position
+        Randomly move each interval to new position without overlapping them
     */
+    let mut rand = StdRand::seed(ClockSeed::default().next_u64());
+    let mut m_intervals = intv.intervals.clone();
+    let mut ret: Vec<io::Iv> = vec![];
+    if !per_chrom {
+        let mut m_gap : u64 = match &genome.gap_budget {
+            Some(g) => g[&0],
+            None => panic!("How are you using the gap_budget without making it first?")
+        };
+        while m_gap > 0 {
+            // MAGIC!?! - smaller g_l make the spacing between intervals more fine
+            // which may make 'more random'. Maximum random is setting all g_l to 1
+            // But this is inefficient as it makes m_gap new intervals
+            // by setting it a max of some percent of the gap budget
+            // we find a happy medium. percent int(1 / 0.05) = 20
+            let g_l = rand.next_range(1..std::cmp::max(2, m_gap / 100));
+            m_intervals.push(io::Iv {
+                start: 0,
+                stop: 0,
+                val: g_l,
+            });
+            m_gap -= g_l;
+        }
 
-*/
+        fastrand::shuffle(&mut m_intervals);
+
+        let mut cur_pos = 0;
+        for i in m_intervals {
+            if i.val == 0 {
+                ret.push(io::Iv {
+                    start: cur_pos,
+                    stop: cur_pos + i.val,
+                    val: 0,
+                });
+            }
+            cur_pos += i.val;
+        }
+    } else {
+        error!("can't run --random novl with --per-chrom, yet");
+        std::process::exit(1);
+    }
+
+    Lapper::<u64, u64>::new(ret)
+}
 
 // **********
 // Overlapers
@@ -174,6 +210,28 @@ fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
     g_count
 }
 
+// Should probably go into an implementation of GenomeShift
+fn make_gap_budget(
+    genome: &io::GenomeShift,
+    intervals: &Lapper<u64, u64>,
+    per_chrom: &bool,
+) -> HashMap<u64, u64> {
+    info!("making gap budget");
+    let mut ret = HashMap::<u64, u64>::new();
+    match per_chrom {
+        false => { ret.insert(0, genome.span - intervals.cov()); },
+        true => {
+            for i in genome.chrom.iter() {
+                ret.insert(
+                    i.start,
+                    intervals.find(i.start, i.stop).map(|p| p.stop - p.start).sum(),
+                );
+            }
+        }
+    }
+    ret
+}
+
 fn main() -> std::io::Result<()> {
     pretty_env_logger::formatted_timed_builder()
         .filter_level(log::LevelFilter::Info)
@@ -187,23 +245,24 @@ fn main() -> std::io::Result<()> {
     }
 
     let mask = args.mask.map(|p| io::read_mask(&p));
-    let genome = io::read_genome(&args.genome, &mask);
+    let mut genome = io::read_genome(&args.genome, &mask);
     let mut a_lapper = io::read_bed(&args.bed_a, &genome, &mask);
     let mut b_lapper = io::read_bed(&args.bed_b, &genome, &mask);
-    if args.merge_overlaps {
+
+    // Setup
+    if !args.no_merge {
         info!("merging overlaps");
         a_lapper.merge_overlaps();
         b_lapper.merge_overlaps();
     }
-
-    // Setup
-    let mut was_swapped = false;
-    if !args.no_swap & (a_lapper.len() > b_lapper.len()) {
-        info!("swapping A for shorter B");
-        std::mem::swap(&mut a_lapper, &mut b_lapper);
-        was_swapped = true;
-    }
-
+    let swapped = match !args.no_swap & (a_lapper.len() > b_lapper.len()) {
+        true => {
+            info!("swapping A for shorter B");
+            std::mem::swap(&mut a_lapper, &mut b_lapper);
+            true
+        }
+        false => false,
+    };
     let overlapper = match args.count {
         cli::Counter::Any => get_any_overlap_count,
         cli::Counter::All => get_num_overlap_count,
@@ -211,7 +270,10 @@ fn main() -> std::io::Result<()> {
     let randomizer = match args.random {
         cli::Randomizer::Circle => circle_intervals,
         cli::Randomizer::Shuffle => shuffle_intervals,
-        // cli::Randomizer::Shuffle => novl_intervals,
+        cli::Randomizer::Novl => {
+            genome.gap_budget = Some(make_gap_budget(&genome, &a_lapper, &args.per_chrom));
+            novl_intervals
+        }
     };
 
     // Processing
@@ -228,23 +290,17 @@ fn main() -> std::io::Result<()> {
         // Send chunk to thread
         let start_iter = i * chunk_size;
         let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
-        let handle = thread::spawn(move || {
-            let mut m_counts: Vec<u64> = vec![];
-            for _j in start_iter..stop_iter {
-                m_counts.push(overlapper(
-                    &randomizer(&m_a, &m_genome, args.per_chrom),
-                    &m_b,
-                ));
-            }
-            m_counts
-        });
-        handles.push(handle);
+        handles.push(thread::spawn(move || {
+            (start_iter..stop_iter)
+                .map(|_| overlapper(&randomizer(&m_a, &m_genome, args.per_chrom), &m_b))
+                .collect()
+        }));
     }
 
     // Collect
     let mut all_counts: Vec<u64> = vec![];
     for handle in handles {
-        let result = handle.join().unwrap();
+        let result: Vec<u64> = handle.join().unwrap();
         all_counts.extend(result);
     }
 
@@ -278,8 +334,8 @@ fn main() -> std::io::Result<()> {
                       "perm_sd": sd,
                       "alt": alt,
                       "n": args.num_times,
-                      "swapped": was_swapped,
-                      "merged": args.merge_overlaps,
+                      "swapped": swapped,
+                      "no_merge": args.no_merge,
                       "A_cnt" : a_lapper.len(),
                       "B_cnt" : b_lapper.len(),
                       "per_chrom": args.per_chrom,

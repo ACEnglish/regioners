@@ -10,6 +10,27 @@ The parameters are getting a little wonky. So I'm going to clean them up.
 
 Making novl
 
+The genome has a span budget of L(g) - L(intvs). Calculate that budget
+
+'shrink' the intervals to size of 1,
+shuffle the list of intervals.
+While span_budget > 0:
+	make a random span of length (1..span_budget)
+	insert that span randomly into the shuffled list of intervals
+	span_budget -= random span length
+cur_pos = 0
+for i in list of intervals (intvs and gaps):
+	if its a gap, cur_pos += L(g)
+	if its an intv, 
+		span = intv.stop - intv.start)
+		end = cur_pos + span
+		intv = (cur_pos, end)
+		cur_pos += span
+
+practical implementation
+lapper.intervals is a vector
+fastrnd::shuffle(&mut lapper.intervals)
+
 build_gaps(lapper, genome, per-chrom)
 probably fastrand shuffle
 

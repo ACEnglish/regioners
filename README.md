@@ -36,12 +36,18 @@ original intersection and a p-value is computed.
 ### Parameter details
 There are a number of options for controlling how `regione_rust` runs. Most have to do with IO, but three are important for the tests.
 
-#### Randomization strategy `--random [shuffle | circle]`
+#### Randomization strategy `--random [shuffle | circle | novl]`
 
 How intervals are randomized is an important part of the permutation test. By default, `regione_rust` will randomly
 `shuffle` each region. For example, two regions at `(x1, y1)`, `(x2, y2)` will each get a random shift (`r`) to 
-`(x1±r1, y1±r1)` and `(x2±r2, y2±r2)`. With `circle`, all regions are shifted by a set amount such that their spatial 
-distances are preserved. i.e. `(x1±r1, y1±r1), (x2±r1, y2±r1)`
+`(x1±r1, y1±r1)` and `(x2±r2, y2±r2)`. 
+
+With `circle`, all regions are shifted by a set amount such that their spatial distances are preserved. i.e. 
+`(x1±r1, y1±r1), (x2±r1, y2±r1)`
+
+The `novl` method looks at all uncovered spans of the genome and randomly breaks them up into smaller segments. It 
+then shuffles all intervals with the uncovered segments. This shuffled list is then re-placed along the genome,
+discarding the uncovered spans and updating the intervals to their new position.
 
 #### Controlling placment with `--per-chrom`
 
@@ -62,8 +68,8 @@ in the bed files on chromosomes not inside the `--genome` file, those regions wi
 * `--num-times` : Number of permutations to perform. See [this](https://stats.stackexchange.com/questions/80025/required-number-of-permutations-for-a-permutation-based-p-value) for help on selecting a value.
 * `--mask` : The regions may have spans of the genome on which they should not be placed (e.g. reference gaps). Use `--mask` to hide unused genome spans.
 * `--per-chrom` : By default, `regione_rust` randomization strategies will allow regions to be placed anywhere on the genome.  With `--per-chrom` regions are placed into positions on the same chromosome.
-* `--merge-overlaps` : Merge overlapping intervals in `-A` and `-B` before processing. This is mainly a convenience function.
-* `--no-swap` : By default, `regione_rust` will swap `-A` and `-B` if `-A` contains fewer intervals. However, one may have a reason to shuffle `-A` regardless of any size
+* `--no-merge-ovl` : Turn off merging of overlapping intervals in `-A` and `-B` before processing. Incompatible with `--random novl.
+* `--no-swap` : Turn off swapping `-A` and `-B` if `-A` contains fewer intervals. However, one may have a reason to shuffle `-A` regardless of any size
 difference. To accomplish this, simply specify `--no-swap`
 
 ## Performance Test
@@ -81,7 +87,7 @@ The output is a json with structure:
 - A_cnt : number of entries in `-A` (note may be swapped from original paramter)
 - B_cnt : number of entries in `-B` (note may be swapped from original paramter)
 - alt : alternate hypothesis used for p-value - 'l'ess or 'g'reater
-- merged : value of `merge-overlaps` parameter
+- no_merge : value of `merge-overlaps` parameter
 - n : number of permutations performed
 - obs : observed number of intersections
 - perm_mu : permutations' mean

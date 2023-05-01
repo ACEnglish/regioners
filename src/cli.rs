@@ -46,9 +46,9 @@ pub struct ArgParser {
     #[arg(long = "per-chrom", default_value_t = false)]
     pub per_chrom: bool,
 
-    /// merge inputs' overlaps before processing
-    #[arg(long = "merge-overlaps", default_value_t = false)]
-    pub merge_overlaps: bool,
+    /// don't merge inputs' overlaps before processing
+    #[arg(long = "no-merge-ovl", default_value_t = false)]
+    pub no_merge: bool,
 
     /// do not swap A and B
     #[arg(long = "no-swap", default_value_t = false)]
@@ -61,9 +61,8 @@ pub enum Randomizer {
     Shuffle,
     // rotate intervals preserving order/spacing
     Circle,
-    //
     // shuffle intervals without allowing overlaps
-    // Novl, Future..
+    Novl,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -98,6 +97,11 @@ pub fn validate_args(args: &ArgParser) -> bool {
 
     if args.threads < 1 {
         warn!("need at least 1 thread");
+        is_ok = false;
+    }
+
+    if (args.random == Randomizer::Novl) & args.no_merge {
+        warn!("using `novl` without merged overlaps may cause errors");
         is_ok = false;
     }
 

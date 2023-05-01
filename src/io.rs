@@ -18,6 +18,7 @@ pub struct GenomeShift {
     pub shift: HashMap<String, u64>,
     // total span of the genome
     pub span: u64,
+    pub gap_budget: Option<HashMap<u64, u64>>,
 }
 
 // The output is wrapped in a Result to allow matching on errors
@@ -55,8 +56,8 @@ pub fn read_mask(file: &std::path::PathBuf) -> MaskShift {
                 prev_start = 0;
             }
 
-            if m_stop < m_start {
-                error!("malformed bed line: stop < start {}", line);
+            if m_stop <= m_start {
+                error!("malformed bed line: stop <= start {}", line);
                 std::process::exit(1);
             }
             if m_start < prev_start {
@@ -143,12 +144,12 @@ pub fn read_genome(file: &std::path::PathBuf, mask: &Option<MaskShift>) -> Genom
     if tot_masked != 0 {
         info!("masked {} bases", tot_masked);
     }
-    load.sort();
 
     GenomeShift {
         chrom: Lapper::new(load),
         shift: m_shift,
         span: cur_start,
+        gap_budget: None,
     }
 }
 
@@ -186,8 +187,8 @@ pub fn read_bed(
                 let m_start = collection[1].parse::<u64>().unwrap();
                 let m_stop = collection[2].parse::<u64>().unwrap();
 
-                if m_stop < m_start {
-                    error!("malformed bed line: stop < start {}", line);
+                if m_stop <= m_start {
+                    error!("malformed bed line: stop <= start {}", line);
                     std::process::exit(1);
                 }
                 if m_start < prev_start {
@@ -242,7 +243,6 @@ pub fn read_bed(
     info!("loaded {} intervals", ret.len());
     info!("masked {} intervals", num_masked);
     info!("total span: {}", tot_size);
-    ret.sort();
 
     Lapper::new(ret)
 }
