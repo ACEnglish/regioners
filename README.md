@@ -2,7 +2,6 @@
 A rust implementation of [regioneR](https://academic.oup.com/bioinformatics/article/32/2/289/1744157) 
 for interval overlap permutation testing.
 
-
 ## Install
 
 ```bash
@@ -13,31 +12,25 @@ cargo build --release
 ```
 
 ## Quick Start
-```
-Usage: regione_rust [OPTIONS] --genome <GENOME> -A <BED_A> -B <BED_B> --output <OUTPUT>
 
-Options:
-  -g, --genome <GENOME>        chromosome lengths (chrom<tab>length)
-  -A <BED_A>                   bed file of regions (chrom<tab>start<tab>end)
-  -B <BED_B>                   bed file of regions (chrom<tab>start<tab>end)
-  -n, --num-times <NUM_TIMES>  number of permutations to perform [default: 100]
-  -o, --output <OUTPUT>        output json file
-  -t, --threads <THREADS>      number of threads to use [default: 1]
-      --random <RANDOM>        randomization strategy [default: shuffle] [possible values: shuffle, circle]
-      --count <COUNT>          overlap counting strategy [default: all] [possible values: all, any]
-      --mask <MASK>            bed file of genome regions to mask (chrom<tab>start<tab>end)
-      --per-chrom              randomize regions within each chromosome
-      --merge-overlaps         merge inputs' overlaps before processing
-      --no-swap                do not swap A and B
-  -h, --help                   Print help
-  -V, --version                Print version
+Check for the significance of CpG islands' intersection with promoters
+```bash
+# Download test beds
+bash test_beds/track_getter.sh
+# Test
+./target/release/regione_rust -g test_beds/grch38.genome.txt \
+		              -A test_beds/grch38.epd_promoters.bed \
+			      -B test_beds/grch38.cpg_islands.bed \
+			      -o cpgiVprom.json
+# Look at all options available
+./target/release/regione_rust -h
 ```
 
 ## Introduction
 
-`regione_rust` performs a perumutation on the intersection of two bed files. It first counts the number of intersections
+`regione_rust` performs a permutation test on the intersection of two bed files. It first counts the number of intersections
 between the two bed files and then will randomly shuffle one of the bed files and count the number of intersections.
-This permutation is repeated `--num-times`. The mean and standard deviation of the permutations is compared to the
+This shuffling/counting is repeated `--num-times`. The mean and standard deviation of the permutations is compared to the
 original intersection and a p-value is computed.
 
 ### Parameter details
@@ -45,19 +38,24 @@ There are a number of options for controlling how `regione_rust` runs. Most have
 
 #### Randomization strategy `--random [shuffle | circle]`
 
-By default, `regione_rust` will randomly shuffle each region with `shuffle`. For example, two regions 
-`(x, y)`, `(x+s, y+s)` will be shuffled to `(x±r1, y±r1)` and `(x±r2, y±r2)` With `circle`, all regions are shifted by a set amount such that their spatial distances 
-are preserved. i.e. `(x±r1, y±r1), (x±r1, y±r1)`
+How intervals are randomized is an important part of the permutation test. By default, `regione_rust` will randomly
+`shuffle` each region. For example, two regions at `(x1, y1)`, `(x2, y2)` will each get a random shift (`r`) to 
+`(x1±r1, y1±r1)` and `(x2±r2, y2±r2)`. With `circle`, all regions are shifted by a set amount such that their spatial 
+distances are preserved. i.e. `(x1±r1, y1±r1), (x2±r1, y2±r1)`
 
 #### Controlling placment with `--per-chrom`
 
-Some intervals shouldn't be shuffled across chromosomes. For example, [genes are not randomly](https://pubmed.ncbi.nlm.nih.gov/20642358/#:~:text=Genes%20are%20nonrandomly%20distributed%20in,genes%20with%20similar%20expression%20profiles.), distributed across chromosomes. Therefore, the randomization strategy may need to limit where intervals are moved. The `--per-chrom` flag will keep intervals on their same chromosome.
+Some intervals shouldn't be shuffled across chromosomes. For example, [genes are not randomly](https://pubmed.ncbi.nlm.nih.gov/20642358/#:~:text=Genes%20are%20nonrandomly%20distributed%20in,genes%20with%20similar%20expression%20profiles.),
+distributed across chromosomes. Therefore, the randomization strategy may need to limit where intervals are moved. 
+The `--per-chrom` flag will keep intervals on their same chromosome.
 
 #### Counting strategy `--count [all | any]`
 
-By default, `all` calculates intersections as the number of overlaps. For example, if one `-A` region hits two `-B` regions, that counts as two intersections. With `any`, the presence of an intersection is counted. So our example above would count a single intersection.
+By default, `all` calculates intersections as the number of overlaps. For example, if one `-A` region hits two `-B` regions, 
+that counts as two intersections. With `any`, the presence of an intersection is counted. So our example above would count 
+a single intersection.
 
-#### Others
+#### Remaining parameters
 * `--genome` :  A two column file with `chrom\tsize`. This becomes the space over which we can shuffle regions. If there are any regions
 in the bed files on chromosomes not inside the `--genome` file, those regions will not be loaded.
 * `-A` and `-B` : Bed files with genomic regions to test. They must be sorted and every `start < stop`.
@@ -70,22 +68,12 @@ difference. To accomplish this, simply specify `--no-swap`
 
 ## Performance Test
 
-Test of 1,000 permutations on 29,598 epd promoters regions intersection with 1,784,804 TRs using 4 cores.
-
-Docker file running ubuntu:latest
-- regione_rust (defaults) : 3.887s
-- regione_rust --per-chrom : 3.702s
-- regione_rust --per-chrom --circle : 3.107s
-- regione_rust --circle : 3.327s
-
-Mac build target x86_64-apple-darwin
-- regione_rust (defaults) : 3.210s
-- regione_rust --per-chrom : 3.547s
-- regione_rust --per-chrom --circle : 3.210s
-- regione_rust --circle : 3.413s
-
-regioneR test of 100 permutations on above data in Rstudio docker.
-- regioneR : 1292.313s
+Test of 1,000 permutations on 29,598 promoter regions tested against 1,784,804 TRs using 4 cores on a Mac book.
+For comparison, a regioneR test of *100* permutations on above data in an Rstudio docker: 1292.313s
+- (defaults) : 3.022s
+- --per-chrom : 2.888s
+- --per-chrom --random circle : 2.713s
+- --random circle : 2.896s
 
 ## Output
 

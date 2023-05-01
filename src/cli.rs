@@ -29,11 +29,11 @@ pub struct ArgParser {
     /// number of threads to use
     #[arg(short, long, default_value_t = 1)]
     pub threads: u8,
-    
+
     /// randomization strategy
     #[arg(value_enum, long, default_value_t = Randomizer::Shuffle)]
     pub random: Randomizer,
-    
+
     /// overlap counting strategy
     #[arg(value_enum, long, default_value_t = Counter::All)]
     pub count: Counter,
@@ -53,7 +53,6 @@ pub struct ArgParser {
     /// do not swap A and B
     #[arg(long = "no-swap", default_value_t = false)]
     pub no_swap: bool,
-
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]

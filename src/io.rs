@@ -39,7 +39,7 @@ pub fn read_mask(file: &std::path::PathBuf) -> MaskShift {
     if let Ok(lines) = read_lines(file) {
         let mut prev_chrom = String::new();
         let mut prev_start: u64 = 0;
-        
+
         for line in lines.flatten() {
             let collection: Vec<&str> = line.split('\t').collect();
             if collection.len() < 3 {
@@ -56,12 +56,15 @@ pub fn read_mask(file: &std::path::PathBuf) -> MaskShift {
             }
 
             if m_stop < m_start {
-                    error!("malformed bed line: stop < start {}", line);
-                    std::process::exit(1);
+                error!("malformed bed line: stop < start {}", line);
+                std::process::exit(1);
             }
             if m_start < prev_start {
-                    error!("bed file unordered `sort -k3n -k1,2n` offending line {}", line);
-                    std::process::exit(1);
+                error!(
+                    "bed file unordered `sort -k3n -k1,2n` offending line {}",
+                    line
+                );
+                std::process::exit(1);
             }
 
             if !load.contains_key(&chrom) {
@@ -188,7 +191,10 @@ pub fn read_bed(
                     std::process::exit(1);
                 }
                 if m_start < prev_start {
-                    error!("bed file unordered `sort -k3n -k1,2n` offending line {}", line);
+                    error!(
+                        "bed file unordered `sort -k3n -k1,2n` offending line {}",
+                        line
+                    );
                     std::process::exit(1);
                 }
 

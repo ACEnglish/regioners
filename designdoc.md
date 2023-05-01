@@ -8,16 +8,13 @@ The parameters are getting a little wonky. So I'm going to clean them up.
 --random shuffle, circle, novl
 --count all, any
 
-no-overlap randomizer
+Making novl
 
-build_gaps(lapper, genome)
+build_gaps(lapper, genome, per-chrom)
+probably fastrand shuffle
 
-no_overlap_shuffle is its own thing
 
-So I gotta make it known that there's 
-	<default> shuffle with overlaps
-	--circle preserves spacing and moves
-	--no-overlap shuffle but without allowing overlaps
+
 
 Day 3 Log:
 ==========

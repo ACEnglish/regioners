@@ -108,6 +108,18 @@ fn circle_intervals(
     Lapper::<u64, u64>::new(ret)
 }
 
+/*
+fn novl_intervals(
+    intv: &Lapper<u64, u64>,
+    genome: &io::GenomeShift,
+    per_chrom: bool,
+) -> Lapper<u64, u64> {
+    /*
+        Randomly move each interval to new position
+    */
+
+*/
+
 // **********
 // Overlapers
 // **********
@@ -173,7 +185,7 @@ fn main() -> std::io::Result<()> {
         error!("please fix arguments");
         std::process::exit(1);
     }
-    
+
     let mask = args.mask.map(|p| io::read_mask(&p));
     let genome = io::read_genome(&args.genome, &mask);
     let mut a_lapper = io::read_bed(&args.bed_a, &genome, &mask);
@@ -183,7 +195,7 @@ fn main() -> std::io::Result<()> {
         a_lapper.merge_overlaps();
         b_lapper.merge_overlaps();
     }
-    
+
     // Setup
     let mut was_swapped = false;
     if !args.no_swap & (a_lapper.len() > b_lapper.len()) {
@@ -191,12 +203,17 @@ fn main() -> std::io::Result<()> {
         std::mem::swap(&mut a_lapper, &mut b_lapper);
         was_swapped = true;
     }
-    
+
     let overlapper = match args.count {
         cli::Counter::Any => get_any_overlap_count,
         cli::Counter::All => get_num_overlap_count,
     };
-    
+    let randomizer = match args.random {
+        cli::Randomizer::Circle => circle_intervals,
+        cli::Randomizer::Shuffle => shuffle_intervals,
+        // cli::Randomizer::Shuffle => novl_intervals,
+    };
+
     // Processing
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
     info!("{} intersections", initial_overlap_count);
@@ -204,35 +221,33 @@ fn main() -> std::io::Result<()> {
     let mut handles = Vec::new();
     let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
 
-    for i in 0..args.threads {
+    for i in 0..args.threads as u32 {
         let m_a = a_lapper.clone();
         let m_b = b_lapper.clone();
         let m_genome = genome.clone();
         // Send chunk to thread
-        let start_iter = (i as u32) * chunk_size;
+        let start_iter = i * chunk_size;
         let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
         let handle = thread::spawn(move || {
             let mut m_counts: Vec<u64> = vec![];
             for _j in start_iter..stop_iter {
-                let new_intv = match args.random {
-                    cli::Randomizer::Circle => circle_intervals(&m_a, &m_genome, args.per_chrom),
-                    cli::Randomizer::Shuffle => shuffle_intervals(&m_a, &m_genome, args.per_chrom),
-                    // cli::Randomizer::Shuffle => shuffle_intervals(&m_a, &m_genome, args.per_chrom),
-                };
-                m_counts.push(overlapper(&new_intv, &m_b));
+                m_counts.push(overlapper(
+                    &randomizer(&m_a, &m_genome, args.per_chrom),
+                    &m_b,
+                ));
             }
             m_counts
         });
         handles.push(handle);
     }
-    
+
     // Collect
     let mut all_counts: Vec<u64> = vec![];
     for handle in handles {
         let result = handle.join().unwrap();
         all_counts.extend(result);
     }
-    
+
     // Calculate
     let (mu, sd) = mean_std(&all_counts);
     let alt = if (initial_overlap_count as f64) < mu {
