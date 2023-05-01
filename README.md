@@ -13,9 +13,7 @@ cargo build --release
 ```
 
 ## Quick Start
-
-### Full Params
-```bash
+```
 Usage: regione_rust [OPTIONS] --genome <GENOME> -A <BED_A> -B <BED_B> --output <OUTPUT>
 
 Options:
@@ -43,56 +41,28 @@ This permutation is repeated `--num-times`. The mean and standard deviation of t
 original intersection and a p-value is computed.
 
 ### Parameter details
-There are a number of options for controlling how `regione_rust` runs. 
+There are a number of options for controlling how `regione_rust` runs. Most have to do with IO, but two are important for the tests.
 
-#### `--genome`
-A two column file with `chrom\tsize`. This becomes the space over which we can shuffle regions. If there are any regions
-in the bed files on chromosomes not inside the `--genome` file, those regions will not be loaded.
+#### Randomization strategy `--random [shuffle | circle]`
 
-#### `-A` and `-B`
-Bed files with genomic regions to test. They must be sorted and every `start < stop`.
-
-#### `--num-times`
-Number of permutations to perform. See [this](https://stats.stackexchange.com/questions/80025/required-number-of-permutations-for-a-permutation-based-p-value) 
-for help on selecting a value.
-
-#### `--random`
-Randomization strategy. 
-
-##### shuffle
-By default, `regione_rust` will randomly shuffle each region. For example, two regions 
-`(x, y)`, `(x+s, y+s)` will be shuffled to `(x±r1, y±r1)` and `(x±r2, y±r2)`
-
-##### circle
-With `--circle`, all regions are shifted by a set amount such that their spatial distances 
+By default, `regione_rust` will randomly shuffle each region with `shuffle`. For example, two regions 
+`(x, y)`, `(x+s, y+s)` will be shuffled to `(x±r1, y±r1)` and `(x±r2, y±r2)` With `circle`, all regions are shifted by a set amount such that their spatial distances 
 are preserved. i.e. `(x±r1, y±r1), (x±r1, y±r1)`
 
-#### `--count`
-Counting strategy.
+#### Counting strategy `--count [all | any]`
 
-##### all 
-Calculates intersections as the number of overlaps. For example, if one `-A` region hits two `-B` regions, that counts as two intersections. 
+By default, `all` calculates intersections as the number of overlaps. For example, if one `-A` region hits two `-B` regions, that counts as two intersections. With `any`, the presence of an intersection is counted. So our example above would count a single intersection.
 
-##### any
-Count that there is any intersection of an interval. So our example above would count a single intersection.
-
-#### `--mask`
-The regions may have spans of the genome on which they should not be placed (e.g. reference gaps). Use `--mask`
-to hide unused genome spans.
-
-#### `--per-chrom`
-By default, `regione_rust` randomization strategies will allow regions to be placed anywhere on the genome. 
-With `--per-chrom` regions are placed into positions on the same chromosome.
-
-#### `--merge-overlaps`
-Merge overlapping intervals in `-A` and `-B` before processing. This is mainly a convenience function.
-
-#### `--no-swap`
-By default, `regione_rust` will swap `-A` and `-B` if `-A` contains fewer intervals.
-Because `-A` is randomly shuffled and then intersected with `-B`, if `-A` is smaller than `-B` we can 
-speed up runtime by performing the swap. However, one may have a reason to shuffle `-A` regardless of any size
+#### Others
+* `--genome` :  A two column file with `chrom\tsize`. This becomes the space over which we can shuffle regions. If there are any regions
+in the bed files on chromosomes not inside the `--genome` file, those regions will not be loaded.
+* `-A` and `-B` : Bed files with genomic regions to test. They must be sorted and every `start < stop`.
+* `--num-times` : Number of permutations to perform. See [this](https://stats.stackexchange.com/questions/80025/required-number-of-permutations-for-a-permutation-based-p-value) for help on selecting a value.
+* `--mask` : The regions may have spans of the genome on which they should not be placed (e.g. reference gaps). Use `--mask` to hide unused genome spans.
+* `--per-chrom` : By default, `regione_rust` randomization strategies will allow regions to be placed anywhere on the genome.  With `--per-chrom` regions are placed into positions on the same chromosome.
+* `--merge-overlaps` : Merge overlapping intervals in `-A` and `-B` before processing. This is mainly a convenience function.
+* `--no-swap` : By default, `regione_rust` will swap `-A` and `-B` if `-A` contains fewer intervals. However, one may have a reason to shuffle `-A` regardless of any size
 difference. To accomplish this, simply specify `--no-swap`
-
 
 ## Things to Note
 
@@ -170,7 +140,6 @@ p.set(xlabel="Intersection Count", ylabel="Permutation Density")
 ## ToDos:
 
 - gzip file reading
-- implement `--no-overlaps` (will require `--max-retry`)
 - local z-score
 - can save memory by making sending Lappers as read-only to threads?
   [src](https://stackoverflow.com/questions/68908091/how-do-i-send-read-only-data-to-other-threads-without-copying)
