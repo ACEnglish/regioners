@@ -41,13 +41,17 @@ This permutation is repeated `--num-times`. The mean and standard deviation of t
 original intersection and a p-value is computed.
 
 ### Parameter details
-There are a number of options for controlling how `regione_rust` runs. Most have to do with IO, but two are important for the tests.
+There are a number of options for controlling how `regione_rust` runs. Most have to do with IO, but three are important for the tests.
 
 #### Randomization strategy `--random [shuffle | circle]`
 
 By default, `regione_rust` will randomly shuffle each region with `shuffle`. For example, two regions 
 `(x, y)`, `(x+s, y+s)` will be shuffled to `(x±r1, y±r1)` and `(x±r2, y±r2)` With `circle`, all regions are shifted by a set amount such that their spatial distances 
 are preserved. i.e. `(x±r1, y±r1), (x±r1, y±r1)`
+
+#### Controlling placment with `--per-chrom`
+
+Some intervals shouldn't be shuffled across chromosomes. For example, [genes are not randomly](https://pubmed.ncbi.nlm.nih.gov/20642358/#:~:text=Genes%20are%20nonrandomly%20distributed%20in,genes%20with%20similar%20expression%20profiles.), distributed across chromosomes. Therefore, the randomization strategy may need to limit where intervals are moved. The `--per-chrom` flag will keep intervals on their same chromosome.
 
 #### Counting strategy `--count [all | any]`
 
@@ -64,19 +68,6 @@ in the bed files on chromosomes not inside the `--genome` file, those regions wi
 * `--no-swap` : By default, `regione_rust` will swap `-A` and `-B` if `-A` contains fewer intervals. However, one may have a reason to shuffle `-A` regardless of any size
 difference. To accomplish this, simply specify `--no-swap`
 
-## Things to Note
-
-Is there any reason to believe your regions aren't randomly distributed across chromosomes? use `--per-chrom`. For
-example, occur at different densities per-chromosome (e.g. chr1 has more genes than expected whereas chrY has fewer).
-
-Do your regions have a spacial relationship? Use `--circle`. For example, genes are typically grouped.
-
-Are your regions being merged by `regione_rust`? Yes. as of now. We're working on making this optional as well 
-as implementing regioneR's `allow.overlaps=FALSE` during shuffling..
-
-Cites:
-- [non-random genes](https://pubmed.ncbi.nlm.nih.gov/20642358/#:~:text=Genes%20are%20nonrandomly%20distributed%20in,genes%20with%20similar%20expression%20profiles.)
-
 ## Performance Test
 
 Test of 1,000 permutations on 29,598 epd promoters regions intersection with 1,784,804 TRs using 4 cores.
@@ -87,13 +78,11 @@ Docker file running ubuntu:latest
 - regione_rust --per-chrom --circle : 3.107s
 - regione_rust --circle : 3.327s
 
-
 Mac build target x86_64-apple-darwin
 - regione_rust (defaults) : 3.210s
 - regione_rust --per-chrom : 3.547s
 - regione_rust --per-chrom --circle : 3.210s
 - regione_rust --circle : 3.413s
-
 
 regioneR test of 100 permutations on above data in Rstudio docker.
 - regioneR : 1292.313s
@@ -102,14 +91,11 @@ regioneR test of 100 permutations on above data in Rstudio docker.
 
 The output is a json with structure:
 - A_cnt : number of entries in `-A` (note may be swapped from original paramter)
-- B_cnt : number of entries in `-A` (note may be swapped from original paramter)
+- B_cnt : number of entries in `-B` (note may be swapped from original paramter)
 - alt : alternate hypothesis used for p-value - 'l'ess or 'g'reater
-- any : value of `--any` parameter
-- circle : value -f `--circle` parameter
 - merged : value of `merge-overlaps` parameter
 - n : number of permutations performed
 - obs : observed number of intersections
-- per_chrom : value of `--per-chrom` parameter
 - perm_mu : permutations' mean
 - perm_sd : permutations' standard deviation
 - perms : list of permutations' number of intersections
