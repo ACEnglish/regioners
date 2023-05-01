@@ -163,21 +163,19 @@ fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
 }
 
 fn main() -> std::io::Result<()> {
-    // ToDo - Debug?
     pretty_env_logger::formatted_timed_builder()
         .filter_level(log::LevelFilter::Info)
         .init();
 
+    // IO
     let args = cli::ArgParser::parse();
     if !cli::validate_args(&args) {
         error!("please fix arguments");
         std::process::exit(1);
     }
-
+    
     let mask = args.mask.map(|p| io::read_mask(&p));
-
     let genome = io::read_genome(&args.genome, &mask);
-
     let mut a_lapper = io::read_bed(&args.bed_a, &genome, &mask);
     let mut b_lapper = io::read_bed(&args.bed_b, &genome, &mask);
     if args.merge_overlaps {
@@ -185,7 +183,8 @@ fn main() -> std::io::Result<()> {
         a_lapper.merge_overlaps();
         b_lapper.merge_overlaps();
     }
-
+    
+    // Setup
     let mut was_swapped = false;
     if !args.no_swap & (a_lapper.len() > b_lapper.len()) {
         info!("swapping A for shorter B");
@@ -197,7 +196,8 @@ fn main() -> std::io::Result<()> {
         cli::Counter::Any => get_any_overlap_count,
         cli::Counter::All => get_num_overlap_count,
     };
-
+    
+    // Processing
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
     info!("{} intersections", initial_overlap_count);
 
@@ -208,59 +208,40 @@ fn main() -> std::io::Result<()> {
         let m_a = a_lapper.clone();
         let m_b = b_lapper.clone();
         let m_genome = genome.clone();
-        //let m_ovl_arg = args.no_overlaps.clone();
-        //let m_mxr_arg = args.max_retry.clone();
-
+        // Send chunk to thread
         let start_iter = (i as u32) * chunk_size;
         let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
         let handle = thread::spawn(move || {
             let mut m_counts: Vec<u64> = vec![];
-            //let input_intv_cnt = m_a.len();
             for _j in start_iter..stop_iter {
-                //let mut is_placed = false;
-                //let mut num_attempts = 0;
-                //while num_attempts < m_mxr_arg {
                 let new_intv = match args.random {
                     cli::Randomizer::Circle => circle_intervals(&m_a, &m_genome, args.per_chrom),
                     cli::Randomizer::Shuffle => shuffle_intervals(&m_a, &m_genome, args.per_chrom),
+                    // cli::Randomizer::Shuffle => shuffle_intervals(&m_a, &m_genome, args.per_chrom),
                 };
-
-                //if args.circle | !m_ovl_arg | (new_intv.len() == input_intv_cnt) {
-                //is_placed = true;
                 m_counts.push(overlapper(&new_intv, &m_b));
-                //break;
-                //}
-                //num_attempts += 1;
-                //}
-
-                //if !is_placed {
-                //warn!("shuffling failed to produce --no-overlaps");
-                //}
             }
             m_counts
         });
         handles.push(handle);
     }
-
+    
+    // Collect
     let mut all_counts: Vec<u64> = vec![];
     for handle in handles {
         let result = handle.join().unwrap();
         all_counts.extend(result);
     }
-
+    
+    // Calculate
     let (mu, sd) = mean_std(&all_counts);
-    info!("perm mu: {}", mu);
-    info!("perm sd: {}", sd);
-
     let alt = if (initial_overlap_count as f64) < mu {
         'l'
     } else {
         'g'
     };
-    info!("alt : {}", alt);
     let g_count = count_permutations(initial_overlap_count, &all_counts, alt);
     let p_val = (g_count + 1.0) / ((all_counts.len() as f64) + 1.0);
-    info!("p-val : {}", p_val);
 
     let mut z_score = 0.0;
     if (initial_overlap_count == 0) & (mu == 0.0) {
@@ -268,6 +249,12 @@ fn main() -> std::io::Result<()> {
     } else {
         z_score = ((initial_overlap_count as f64) - mu) / sd;
     }
+
+    // Output
+    info!("perm mu: {}", mu);
+    info!("perm sd: {}", sd);
+    info!("alt : {}", alt);
+    info!("p-val : {}", p_val);
 
     let data = json!({"pval": p_val,
                       "zscore": z_score,
@@ -284,7 +271,6 @@ fn main() -> std::io::Result<()> {
                       "perms": all_counts});
     let json_str = serde_json::to_string(&data).unwrap();
 
-    // Write the JSON string to a file
     let mut file = File::create(args.output)?;
     file.write_all(json_str.as_bytes())
 }
