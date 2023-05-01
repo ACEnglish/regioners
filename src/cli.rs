@@ -53,7 +53,6 @@ pub struct ArgParser {
     /// merge inputs' overlaps before processing
     #[arg(long = "merge-overlaps", default_value_t = false)]
     pub merge_overlaps: bool,
-
     /*
     /// don't allow overlapping entries during randomization
     #[arg(long = "no-overlaps", default_value_t = false)]

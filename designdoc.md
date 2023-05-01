@@ -1,3 +1,45 @@
+Day 3 Log:
+==========
+
+Didn't keep tight notes.
+Main thing was that I realized how I was performing the was incorrect (needed to use std::mem::swap instead of `let
+(a,b) = (b.clone(), a.clone())`)
+
+Speaking of weird syntax- turns out I had a bunch of it. But I found `rustup component add clippy` and `rustfmt`. The
+latter seemed to help with indenting. The former was able to tell I was using poor design patterns. There were two main
+errors:
+
+I was manually implementing map with:
+```rust
+let mask = match args.mask { Some(p) => Some(io::read_mask(&p)), None => None }
+```
+But I should have been doing
+```rust
+let mask = args.mask.map(|p| io::read_mask(&p));
+```
+I don't know how long it would have taken me to realize what `.map` was doing without clippy calling it out.
+
+Similarly, I found that my lines:
+```rust
+if let Ok(lines) = read_lines(file) {
+    for line in lines {
+        if let Ok(cur_line) = line {
+```
+Should have been written
+```rust
+if let Ok(lines) = read_lines(file) {
+    for line in lines.flatten() {
+```
+That third `if let` was the only ... thing ... inside the loop. (things like `Some` and `None`).
+So because I was only handling `Ok`, I could just use `flatten`. I'll have to look up if flatten is only for `Ok` and if
+its only on iterables.
+
+This helped me figure out how to use the match/map/collect a little better and lead to the refactoring of the
+overlap counters in main (which I think might be a smidge faster)
+
+I started making `--no-overlaps`. There's commented out code that will run it. However, it's brute force and will fail
+often. I have an idea for considering the gaps between regions to help shuffle the intervals. But I just realized it'll
+only work if we enforce `--merge-overlaps`.
 
 Day 2 Log:
 =========

@@ -112,29 +112,22 @@ fn circle_intervals(
 // Overlapers
 // **********
 fn get_num_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> u64 {
-    /*
-        Return number of b intervals intersecting each of a's intervals
-    */
-    let mut inter_cnt: u64 = 0;
-    for i in a_lap.iter() {
-        inter_cnt += b_lap.find(i.start, i.stop).count() as u64;
-    }
-
-    inter_cnt
+    /* Return number of b intervals intersecting each of a's intervals */
+    a_lap
+        .iter()
+        .map(|i| b_lap.find(i.start, i.stop).count() as u64)
+        .sum()
 }
 
 fn get_any_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> u64 {
-    /*
-        Return number of a intervals intersecting b intervals
-    */
-    let mut inter_cnt: u64 = 0;
-    for i in a_lap.iter() {
-        if b_lap.find(i.start, i.stop).next().is_some() {
-            inter_cnt += 1;
-        }
-    }
-
-    inter_cnt
+    /* Return number of a intervals intersecting b intervals */
+    a_lap
+        .iter()
+        .map(|i| match b_lap.find(i.start, i.stop).next() {
+            Some(_) => 1,
+            None => 0,
+        })
+        .sum()
 }
 
 // *******
@@ -181,7 +174,6 @@ fn main() -> std::io::Result<()> {
         std::process::exit(1);
     }
 
-    // This was a manual implementation of map `match args.mask { Some(p) => Some(io::read_mask(&p)), None => None }`
     let mask = args.mask.map(|p| io::read_mask(&p));
 
     let genome = io::read_genome(&args.genome, &mask);
@@ -228,22 +220,22 @@ fn main() -> std::io::Result<()> {
                 //let mut is_placed = false;
                 //let mut num_attempts = 0;
                 //while num_attempts < m_mxr_arg {
-                    let new_intv = if args.circle {
-                        circle_intervals(&m_a, &m_genome, args.per_chrom)
-                    } else {
-                        shuffle_intervals(&m_a, &m_genome, args.per_chrom)
-                    };
+                let new_intv = if args.circle {
+                    circle_intervals(&m_a, &m_genome, args.per_chrom)
+                } else {
+                    shuffle_intervals(&m_a, &m_genome, args.per_chrom)
+                };
 
-                    //if args.circle | !m_ovl_arg | (new_intv.len() == input_intv_cnt) {
-                        //is_placed = true;
-                        m_counts.push(overlapper(&new_intv, &m_b));
-                        //break;
-                    //}
-                    //num_attempts += 1;
+                //if args.circle | !m_ovl_arg | (new_intv.len() == input_intv_cnt) {
+                //is_placed = true;
+                m_counts.push(overlapper(&new_intv, &m_b));
+                //break;
+                //}
+                //num_attempts += 1;
                 //}
 
                 //if !is_placed {
-                    //warn!("shuffling failed to produce --no-overlaps");
+                //warn!("shuffling failed to produce --no-overlaps");
                 //}
             }
             m_counts
