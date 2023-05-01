@@ -42,11 +42,6 @@ pub struct ArgParser {
     #[arg(long, default_value_t = false)]
     pub any: bool,
 
-    /* Depricated for Day 2
-    /// don't allow overlapping entries during randomization
-    #[arg(long = "no-overlap", default_value_t = false)]
-    pub no_overlaps: bool,
-    */
     /// randomize regions within each chromosome
     #[arg(long = "per-chrom", default_value_t = false)]
     pub per_chrom: bool,
@@ -54,9 +49,18 @@ pub struct ArgParser {
     /// use circularization for randomization
     #[arg(long, default_value_t = false)]
     pub circle: bool,
-    /* Depricated for Day 2
+
+    /// merge inputs' overlaps before processing
+    #[arg(long = "merge-overlaps", default_value_t = false)]
+    pub merge_overlaps: bool,
+
+    /*
+    /// don't allow overlapping entries during randomization
+    #[arg(long = "no-overlaps", default_value_t = false)]
+    pub no_overlaps: bool,
+
     /// maximum randomization retries before fail
-    #[arg(long = "max-retry", default_value_t = 250)]
+    #[arg(long = "max-retry", default_value_t = 25)]
     pub max_retry: u64
     */
 }
@@ -75,10 +79,19 @@ pub fn validate_args(args: &ArgParser) -> bool {
         error!("--genome file doesn't exist");
         is_ok = false;
     }
-    /*if !args.mask.is_file() { an optional so, if it is there I have to check it..
-        error!("--mask file doesn't exist");
+
+    if let Some(m) = &args.mask {
+        if !m.is_file() {
+            error!("--mask file doesn't exist");
+            is_ok = false;
+        }
+    }
+
+    if args.threads < 1 {
+        warn!("need at least 1 thread");
         is_ok = false;
-    }*/
+    }
+
     if args.num_times < 100 {
         warn!(
             "minimum p-value with {} is {}.",
@@ -86,7 +99,6 @@ pub fn validate_args(args: &ArgParser) -> bool {
             1.0 / ((args.num_times as f32) + 1.0)
         );
     }
-    // TODO: thread checks, mask check
 
     is_ok
 }

@@ -78,6 +78,9 @@ By default, `regione_rust` will randomly shuffle each region. With `--circle`, a
 such that their spatial distances are preserved. For example, two regions `(x, y)`, `(x+s, y+s)` by default will be
 shuffled to `(x±r1, y±r1)` and `(x±r2, y±r2)`. However, `--circle` shuffles to `(x±r1, y±r1), (x±r1, y±r1)`.
 
+#### `--merge-overlaps`
+Merge overlapping intervals in `-A` and `-B` before processing.
+
 ## Things to Note
 
 Is there any reason to believe your regions aren't randomly distributed across chromosomes? use `--per-chrom`. For
@@ -85,9 +88,8 @@ example, occur at different densities per-chromosome (e.g. chr1 has more genes t
 
 Do your regions have a spacial relationship? Use `--circle`. For example, genes are typically grouped.
 
-Are your regions being merged by `regione_rust`? Yes. as of now, we're going for speed and `rust_lapper` works more
-quickly with merged overlaps by seek-ing. We're working on making this optional as well as implementing regioneR's 
-`allow.overlaps=FALSE` during shuffling..
+Are your regions being merged by `regione_rust`? Yes. as of now. We're working on making this optional as well 
+as implementing regioneR's `allow.overlaps=FALSE` during shuffling..
 
 Cites:
 - [non-random genes](https://pubmed.ncbi.nlm.nih.gov/20642358/#:~:text=Genes%20are%20nonrandomly%20distributed%20in,genes%20with%20similar%20expression%20profiles.)
@@ -110,19 +112,26 @@ Mac build target x86_64-apple-darwin
 - regione_rust --circle : 3.413s
 
 
-Day1 regioneR test of 100 permutations on above data in Rstudio docker.
+regioneR test of 100 permutations on above data in Rstudio docker.
 - regioneR : 1292.313s
 
 ## Output
 
 The output is a json with structure:
-- alt : (l)ess or (g)reater alternate hypothesis used
+- A_cnt : number of entries in `-A` (note may be swapped from original paramter)
+- B_cnt : number of entries in `-A` (note may be swapped from original paramter)
+- alt : alternate hypothesis used for p-value - 'l'ess or 'g'reater
+- any : value of `--any` parameter
+- circle : value -f `--circle` parameter
+- merged : value of `merge-overlaps` parameter
 - n : number of permutations performed
 - obs : observed number of intersections
+- per_chrom : value of `--per-chrom` parameter
 - perm_mu : permutations' mean
 - perm_sd : permutations' standard deviation
-- perms : permutations' number of intersections
+- perms : list of permutations' number of intersections
 - pval : permutation test's p-value
+- swapped : were `-A` and `-B` swapped
 - zscore : permutation test's zscore
 
 ## Plotting
@@ -147,7 +156,9 @@ p.set(xlabel="Intersection Count", ylabel="Permutation Density")
 
 ## ToDos:
 
-- implement `--no-overlaps` (will require `--max-retry`)
-- can save memory by making sending Lappers as read-only to threads? [src](https://stackoverflow.com/questions/68908091/how-do-i-send-read-only-data-to-other-threads-without-copying)
 - gzip file reading
+- implement `--no-overlaps` (will require `--max-retry`)
 - local z-score
+- can save memory by making sending Lappers as read-only to threads?
+  [src](https://stackoverflow.com/questions/68908091/how-do-i-send-read-only-data-to-other-threads-without-copying)
+  though memory isn't much of a problem.

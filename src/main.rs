@@ -16,17 +16,6 @@ use serde_json::json;
 mod cli;
 mod io;
 
-fn mean_std(v: &[u64]) -> (f64, f64) {
-    let n = v.len() as f64;
-    let mean = v.iter().sum::<u64>() as f64 / n;
-
-    let variance = v.iter().map(|x| (*x as f64 - mean).powi(2)).sum::<f64>() / n;
-
-    let std_dev = variance.sqrt();
-
-    (mean, std_dev)
-}
-
 // ***********
 // Randomizers
 // ***********
@@ -50,7 +39,7 @@ fn shuffle_intervals(
         } else {
             (0, genome.span)
         };
-        let span = i.start - i.stop;
+        let span = i.stop - i.start;
         let shift = rand.next_range(lower..(upper - span));
         ret.push(io::Iv {
             start: i.start + shift,
@@ -59,10 +48,8 @@ fn shuffle_intervals(
         });
     }
     ret.sort();
-    let mut ret = Lapper::<u64, u64>::new(ret);
-    ret.merge_overlaps();
 
-    ret
+    Lapper::<u64, u64>::new(ret)
 }
 
 fn circle_intervals(
@@ -121,12 +108,9 @@ fn circle_intervals(
     Lapper::<u64, u64>::new(ret)
 }
 
-
 // **********
 // Overlapers
 // **********
-
-
 fn get_num_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> u64 {
     /*
         Return number of b intervals intersecting each of a's intervals
@@ -151,6 +135,20 @@ fn get_any_overlap_count(a_lap: &Lapper<u64, u64>, b_lap: &Lapper<u64, u64>) -> 
     }
 
     inter_cnt
+}
+
+// *******
+// Helpers
+// *******
+fn mean_std(v: &[u64]) -> (f64, f64) {
+    let n = v.len() as f64;
+    let mean = v.iter().sum::<u64>() as f64 / n;
+
+    let variance = v.iter().map(|x| (*x as f64 - mean).powi(2)).sum::<f64>() / n;
+
+    let std_dev = variance.sqrt();
+
+    (mean, std_dev)
 }
 
 fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
@@ -183,17 +181,19 @@ fn main() -> std::io::Result<()> {
         std::process::exit(1);
     }
 
-    // This is a manual implementation of map `match args.mask { Some(p) => Some(io::read_mask(&p)), None => None }`
+    // This was a manual implementation of map `match args.mask { Some(p) => Some(io::read_mask(&p)), None => None }`
     let mask = args.mask.map(|p| io::read_mask(&p));
 
     let genome = io::read_genome(&args.genome, &mask);
 
     let mut a_lapper = io::read_bed(&args.bed_a, &genome, &mask);
     let mut b_lapper = io::read_bed(&args.bed_b, &genome, &mask);
-    info!("merging overlaps");
-    a_lapper.merge_overlaps();
-    b_lapper.merge_overlaps();
-    
+    if args.merge_overlaps {
+        info!("merging overlaps");
+        a_lapper.merge_overlaps();
+        b_lapper.merge_overlaps();
+    }
+
     let mut was_swapped = false;
     if !args.no_swap & (a_lapper.len() > b_lapper.len()) {
         info!("swapping A for shorter B");
@@ -216,22 +216,35 @@ fn main() -> std::io::Result<()> {
         let m_a = a_lapper.clone();
         let m_b = b_lapper.clone();
         let m_genome = genome.clone();
-        // let m_ovl_arg = args.no_overlaps.clone();
-        // let m_mxr_arg = args.max_retry.clone();
+        //let m_ovl_arg = args.no_overlaps.clone();
+        //let m_mxr_arg = args.max_retry.clone();
 
-        // There's got to be a better way
         let start_iter = (i as u32) * chunk_size;
         let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
-        let m_range = start_iter..stop_iter;
         let handle = thread::spawn(move || {
             let mut m_counts: Vec<u64> = vec![];
-            for _j in m_range {
-                let new_intv = if args.circle {
-                    circle_intervals(&m_a, &m_genome, args.per_chrom)
-                } else {
-                    shuffle_intervals(&m_a, &m_genome, args.per_chrom)
-                };
-                m_counts.push(overlapper(&new_intv, &m_b));
+            //let input_intv_cnt = m_a.len();
+            for _j in start_iter..stop_iter {
+                //let mut is_placed = false;
+                //let mut num_attempts = 0;
+                //while num_attempts < m_mxr_arg {
+                    let new_intv = if args.circle {
+                        circle_intervals(&m_a, &m_genome, args.per_chrom)
+                    } else {
+                        shuffle_intervals(&m_a, &m_genome, args.per_chrom)
+                    };
+
+                    //if args.circle | !m_ovl_arg | (new_intv.len() == input_intv_cnt) {
+                        //is_placed = true;
+                        m_counts.push(overlapper(&new_intv, &m_b));
+                        //break;
+                    //}
+                    //num_attempts += 1;
+                //}
+
+                //if !is_placed {
+                    //warn!("shuffling failed to produce --no-overlaps");
+                //}
             }
             m_counts
         });
@@ -273,6 +286,7 @@ fn main() -> std::io::Result<()> {
                       "alt": alt,
                       "n": args.num_times,
                       "swapped": was_swapped,
+                      "merged": args.merge_overlaps,
                       "A_cnt" : a_lapper.len(),
                       "B_cnt" : b_lapper.len(),
                       "any": args.any,
