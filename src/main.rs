@@ -192,12 +192,12 @@ fn main() -> std::io::Result<()> {
         std::mem::swap(&mut a_lapper, &mut b_lapper);
         was_swapped = true;
     }
-
-    let overlapper = if args.any {
-        get_any_overlap_count
-    } else {
-        get_num_overlap_count
+    
+    let overlapper = match args.count {
+        cli::Counter::Any => get_any_overlap_count,
+        cli::Counter::All => get_num_overlap_count,
     };
+
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
     info!("{} intersections", initial_overlap_count);
 
@@ -220,10 +220,9 @@ fn main() -> std::io::Result<()> {
                 //let mut is_placed = false;
                 //let mut num_attempts = 0;
                 //while num_attempts < m_mxr_arg {
-                let new_intv = if args.circle {
-                    circle_intervals(&m_a, &m_genome, args.per_chrom)
-                } else {
-                    shuffle_intervals(&m_a, &m_genome, args.per_chrom)
+                let new_intv = match args.random {
+                    cli::Randomizer::Circle => circle_intervals(&m_a, &m_genome, args.per_chrom),
+                    cli::Randomizer::Shuffle => shuffle_intervals(&m_a, &m_genome, args.per_chrom),
                 };
 
                 //if args.circle | !m_ovl_arg | (new_intv.len() == input_intv_cnt) {
@@ -281,9 +280,7 @@ fn main() -> std::io::Result<()> {
                       "merged": args.merge_overlaps,
                       "A_cnt" : a_lapper.len(),
                       "B_cnt" : b_lapper.len(),
-                      "any": args.any,
                       "per_chrom": args.per_chrom,
-                      "circle": args.circle,
                       "perms": all_counts});
     let json_str = serde_json::to_string(&data).unwrap();
 

@@ -25,11 +25,12 @@ Options:
   -n, --num-times <NUM_TIMES>  number of permutations to perform [default: 100]
   -o, --output <OUTPUT>        output json file
   -t, --threads <THREADS>      number of threads to use [default: 1]
+      --random <RANDOM>        randomization strategy [default: shuffle] [possible values: shuffle, circle]
+      --count <COUNT>          overlap counting strategy [default: all] [possible values: all, any]
       --mask <MASK>            bed file of genome regions to mask (chrom<tab>start<tab>end)
-      --no-swap                do not swap A and B
-      --any                    count any overlap instead of number of overlaps
       --per-chrom              randomize regions within each chromosome
-      --circle                 use circularization for randomization
+      --merge-overlaps         merge inputs' overlaps before processing
+      --no-swap                do not swap A and B
   -h, --help                   Print help
   -V, --version                Print version
 ```
@@ -41,7 +42,7 @@ between the two bed files and then will randomly shuffle one of the bed files an
 This permutation is repeated `--num-times`. The mean and standard deviation of the permutations is compared to the
 original intersection and a p-value is computed.
 
-### Parameters
+### Parameter details
 There are a number of options for controlling how `regione_rust` runs. 
 
 #### `--genome`
@@ -49,37 +50,49 @@ A two column file with `chrom\tsize`. This becomes the space over which we can s
 in the bed files on chromosomes not inside the `--genome` file, those regions will not be loaded.
 
 #### `-A` and `-B`
-Bed files with genomic regions to test.
+Bed files with genomic regions to test. They must be sorted and every `start < stop`.
 
-#### `--threads`
-Permutations can be calculated by multiple `--threads` in order to speed up computation.
+#### `--num-times`
+Number of permutations to perform. See [this](https://stats.stackexchange.com/questions/80025/required-number-of-permutations-for-a-permutation-based-p-value) 
+for help on selecting a value.
+
+#### `--random`
+Randomization strategy. 
+
+##### shuffle
+By default, `regione_rust` will randomly shuffle each region. For example, two regions 
+`(x, y)`, `(x+s, y+s)` will be shuffled to `(x±r1, y±r1)` and `(x±r2, y±r2)`
+
+##### circle
+With `--circle`, all regions are shifted by a set amount such that their spatial distances 
+are preserved. i.e. `(x±r1, y±r1), (x±r1, y±r1)`
+
+#### `--count`
+Counting strategy.
+
+##### all 
+Calculates intersections as the number of overlaps. For example, if one `-A` region hits two `-B` regions, that counts as two intersections. 
+
+##### any
+Count that there is any intersection of an interval. So our example above would count a single intersection.
 
 #### `--mask`
 The regions may have spans of the genome on which they should not be placed (e.g. reference gaps). Use `--mask`
 to hide unused genome spans.
 
+#### `--per-chrom`
+By default, `regione_rust` randomization strategies will allow regions to be placed anywhere on the genome. 
+With `--per-chrom` regions are placed into positions on the same chromosome.
+
+#### `--merge-overlaps`
+Merge overlapping intervals in `-A` and `-B` before processing. This is mainly a convenience function.
+
 #### `--no-swap`
 By default, `regione_rust` will swap `-A` and `-B` if `-A` contains fewer intervals.
 Because `-A` is randomly shuffled and then intersected with `-B`, if `-A` is smaller than `-B` we can 
-speed up runtime by performing the swap. However, one may have a reason to shuffle `-A` regardless of size. 
-To accomplish this, simply specify `--no-swap`
+speed up runtime by performing the swap. However, one may have a reason to shuffle `-A` regardless of any size
+difference. To accomplish this, simply specify `--no-swap`
 
-#### `--any`
-By default, `regione_rust` calculates intersections as the number of overlaps. For example, if one `-A` region hits two
-`-B` regions, that counts as two intersections. By using `--any`, we count that there is any intersection between the
-two bed files. So for our example, `--any` would count it as one intersection.
-
-#### `--per-chrom`
-By default, `regione_rust` will allow regions to be placed anywhere on the genome. With `--per-chrom` regions are
-shuffled into positions on the same chromosome.
-
-#### `--circle`
-By default, `regione_rust` will randomly shuffle each region. With `--circle`, all regions are shifted by a set amount
-such that their spatial distances are preserved. For example, two regions `(x, y)`, `(x+s, y+s)` by default will be
-shuffled to `(x±r1, y±r1)` and `(x±r2, y±r2)`. However, `--circle` shuffles to `(x±r1, y±r1), (x±r1, y±r1)`.
-
-#### `--merge-overlaps`
-Merge overlapping intervals in `-A` and `-B` before processing.
 
 ## Things to Note
 

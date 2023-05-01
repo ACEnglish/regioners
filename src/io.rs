@@ -37,6 +37,9 @@ pub fn read_mask(file: &std::path::PathBuf) -> MaskShift {
     let mut num_mask = 0;
 
     if let Ok(lines) = read_lines(file) {
+        let mut prev_chrom = String::new();
+        let mut prev_start: u64 = 0;
+        
         for line in lines.flatten() {
             let collection: Vec<&str> = line.split('\t').collect();
             if collection.len() < 3 {
@@ -46,6 +49,20 @@ pub fn read_mask(file: &std::path::PathBuf) -> MaskShift {
             let chrom = collection[0].to_string();
             let m_start = collection[1].parse::<u64>().unwrap();
             let m_stop = collection[2].parse::<u64>().unwrap();
+
+            if chrom != prev_chrom {
+                prev_chrom = chrom.clone();
+                prev_start = 0;
+            }
+
+            if m_stop < m_start {
+                    error!("malformed bed line: stop < start {}", line);
+                    std::process::exit(1);
+            }
+            if m_start < prev_start {
+                    error!("bed file unordered `sort -k3n -k1,2n` offending line {}", line);
+                    std::process::exit(1);
+            }
 
             if !load.contains_key(&chrom) {
                 load.insert(chrom.clone(), Vec::<Iv>::new());
@@ -65,10 +82,9 @@ pub fn read_mask(file: &std::path::PathBuf) -> MaskShift {
 
     let mut ret = MaskShift::new();
     for (key, val) in load.iter_mut() {
-        val.sort();
-        // can't assume they're sorted, so I gotta do this
         ret.insert(key.clone(), Lapper::new(val.clone()));
     }
+
     info!(
         "loaded {} mask regions on {} chromosomes",
         num_mask,
@@ -147,9 +163,10 @@ pub fn read_bed(
     let mut num_masked = 0;
     let mut warned_chroms: Vec<String> = vec![];
 
-    // File hosts must exist in current path before this produces output
     if let Ok(lines) = read_lines(file) {
-        // Consumes the iterator, returns an (Optional) String
+        let mut prev_chrom = String::new();
+        let mut prev_start: u64 = 0;
+
         for line in lines.flatten() {
             let collection: Vec<&str> = line.split('\t').collect();
             if collection.len() < 3 {
@@ -157,10 +174,23 @@ pub fn read_bed(
                 std::process::exit(1);
             }
             let chrom = collection[0].to_string();
+            if chrom != prev_chrom {
+                prev_chrom = chrom.clone();
+                prev_start = 0;
+            }
 
             if genome.shift.contains_key(&chrom) {
                 let m_start = collection[1].parse::<u64>().unwrap();
                 let m_stop = collection[2].parse::<u64>().unwrap();
+
+                if m_stop < m_start {
+                    error!("malformed bed line: stop < start {}", line);
+                    std::process::exit(1);
+                }
+                if m_start < prev_start {
+                    error!("bed file unordered `sort -k3n -k1,2n` offending line {}", line);
+                    std::process::exit(1);
+                }
 
                 // if it intersects, get out
                 let skip = match mask {

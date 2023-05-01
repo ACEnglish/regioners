@@ -1,6 +1,6 @@
 extern crate pretty_env_logger;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 
 #[derive(Parser)]
 // A rust implementation of regioneR for interval overlap permutation testing
@@ -29,39 +29,50 @@ pub struct ArgParser {
     /// number of threads to use
     #[arg(short, long, default_value_t = 1)]
     pub threads: u8,
+    
+    /// randomization strategy
+    #[arg(value_enum, long, default_value_t = Randomizer::Shuffle)]
+    pub random: Randomizer,
+    
+    /// overlap counting strategy
+    #[arg(value_enum, long, default_value_t = Counter::All)]
+    pub count: Counter,
 
     /// bed file of genome regions to mask (chrom<tab>start<tab>end)
     #[arg(long)]
     pub mask: Option<std::path::PathBuf>,
 
-    /// do not swap A and B
-    #[arg(long = "no-swap", default_value_t = false)]
-    pub no_swap: bool,
-
-    /// count any overlap instead of number of overlaps
-    #[arg(long, default_value_t = false)]
-    pub any: bool,
-
     /// randomize regions within each chromosome
     #[arg(long = "per-chrom", default_value_t = false)]
     pub per_chrom: bool,
 
-    /// use circularization for randomization
-    #[arg(long, default_value_t = false)]
-    pub circle: bool,
-
     /// merge inputs' overlaps before processing
     #[arg(long = "merge-overlaps", default_value_t = false)]
     pub merge_overlaps: bool,
-    /*
-    /// don't allow overlapping entries during randomization
-    #[arg(long = "no-overlaps", default_value_t = false)]
-    pub no_overlaps: bool,
 
-    /// maximum randomization retries before fail
-    #[arg(long = "max-retry", default_value_t = 25)]
-    pub max_retry: u64
-    */
+    /// do not swap A and B
+    #[arg(long = "no-swap", default_value_t = false)]
+    pub no_swap: bool,
+
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum Randomizer {
+    // shuffle intervals allowing overlaps
+    Shuffle,
+    // rotate intervals preserving order/spacing
+    Circle,
+    //
+    // shuffle intervals without allowing overlaps
+    // Novl, Future..
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum Counter {
+    // count number of overlaps
+    All,
+    // count if any overlap
+    Any,
 }
 
 pub fn validate_args(args: &ArgParser) -> bool {
