@@ -17,6 +17,17 @@ use serde_json::json;
 mod cli;
 mod io;
 
+
+const NOVLMAGIC: u64 = 100;
+/* When performing novl randomization, we break the uncovered spans of
+*  the genome into pieces and shuffle them along with the intervals.
+*  Truly random novl would break all the uncovered spans into 1bp pieces.
+*  However, this is extremly inefficient. Instead, we break it into pieces 
+*  randomly between 1bp and some percent of the gap_budget (gap_pct).
+*  NOVLMAGIC is calculated as int(1 / gap_pct)
+*/
+
+
 // ***********
 // Randomizers
 // ***********
@@ -121,12 +132,7 @@ fn novl_intervals(
             None => panic!("How are you using the gap_budget without making it first?")
         };
         while m_gap > 0 {
-            // MAGIC!?! - smaller g_l make the spacing between intervals more fine
-            // which may make 'more random'. Maximum random is setting all g_l to 1
-            // But this is inefficient as it makes m_gap new intervals
-            // by setting it a max of some percent of the gap budget
-            // we find a happy medium. percent int(1 / 0.05) = 20
-            let g_l = rand.next_range(1..std::cmp::max(2, m_gap / 100));
+            let g_l = rand.next_range(1..std::cmp::max(2, m_gap / NOVLMAGIC));
             m_intervals.push(io::Iv {
                 start: 0,
                 stop: 0,
