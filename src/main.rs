@@ -156,10 +156,7 @@ fn novl_intervals(
         }
         //info!("gap pieces {}", num_gap_pieces);
 
-        //cur_intervals.extend(intv.find(subi.start, subi.stop).collect::<Vec<_>>());
-        for i in intv.find(subi.start, subi.stop) {
-            cur_intervals.push(i.clone())
-        }
+        cur_intervals.extend(intv.find(subi.start, subi.stop).cloned());
         fastrand::shuffle(&mut cur_intervals);
 
         let mut cur_pos = subi.start;
