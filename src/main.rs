@@ -2,7 +2,6 @@ extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::thread::{Builder, JoinHandle};
@@ -16,19 +15,9 @@ use serde_json::json;
 
 mod cli;
 mod io;
+mod gapbreaks;
 
-const NOVLMAGIC: u64 = 10000;
-/* When performing novl randomization, we break the uncovered spans of
-*  the genome into pieces and shuffle them along with the intervals.
-*  Truly random novl would break all the uncovered spans into 1bp pieces.
-*  However, this is extremly inefficient. Instead, we break it into pieces
-*  randomly between 1bp and some maximum size. If this maximum size was
-*  the length of all uncovered spans, we could end up making one giant
-*  uncovered span and then grouping all the intervals end-to-end.
-*  By setting the maximum size to some percent of the uncovered span
-*  we lower the bias towards making large gaps.
-*  NOVLMAGIC is calculated as int(1 / max_size_percent)
-*/
+use crate::gapbreaks::{GapBreaks};
 
 // ***********
 // Randomizers
@@ -120,33 +109,6 @@ fn circle_intervals(
     Lapper::<u64, u64>::new(ret)
 }
 
-struct GapBreaks {
-    budget: u64,
-    rand: StdRand,
-}
-
-impl GapBreaks {
-    fn new(m_budget: u64) -> Self {
-        Self {
-            budget: m_budget,
-            rand: StdRand::seed(ClockSeed::default().next_u64()),
-        }
-    }
-}
-
-impl Iterator for GapBreaks {
-    type Item = (bool, u64);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.budget > 0 {
-            let g_l = self.rand.next_range(1..std::cmp::max(2, self.budget / NOVLMAGIC));
-            self.budget -= g_l;
-            return Some((false, g_l));
-        }
-        None
-    }
-}
-
 fn novl_intervals(
     intv: &Lapper<u64, u64>,
     genome: &io::GenomeShift,
@@ -155,7 +117,6 @@ fn novl_intervals(
     /*
         Randomly move each interval to new position without overlapping them
     */
-    let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     let mut ret: Vec<io::Iv> = vec![];
 
     let spans = match per_chrom {
@@ -168,20 +129,12 @@ fn novl_intervals(
     };
 
     for subi in spans {
-        let mut cur_intervals: Vec<(bool, u64)> = vec![];
-        let mut m_gap: u64 = match &genome.gap_budget {
+        let m_gap: u64 = match &genome.gap_budget {
             Some(g) => g[&subi.start],
             None => panic!("How are you using the gap_budget without making it first?"),
         };
-        //let mut num_gap_pieces = 0;
 
-        while m_gap > 0 {
-            let g_l = rand.next_range(1..std::cmp::max(2, m_gap / NOVLMAGIC));
-            m_gap -= g_l;
-            cur_intervals.push((false, g_l));
-        }
-        //info!("gap pieces {}", num_gap_pieces);
-
+        let mut cur_intervals: Vec<(bool, u64)> = GapBreaks::new(m_gap).collect();
         cur_intervals.extend(
             intv.find(subi.start, subi.stop)
                 .map(|i| (true, i.stop - i.start)),
@@ -246,35 +199,8 @@ fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
     match alt {
         'l' => obs.iter().map(|i| (o_count >= *i) as u8 as f64).sum(),
         'g' => obs.iter().map(|i| (o_count <= *i) as u8 as f64).sum(),
-        _ => panic!("Invalid alt")
+        _ => panic!("Invalid alt"),
     }
-}
-
-// Should probably go into an implementation of GenomeShift
-fn make_gap_budget(
-    genome: &io::GenomeShift,
-    intervals: &Lapper<u64, u64>,
-    per_chrom: &bool,
-) -> HashMap<u64, u64> {
-    info!("making gap budget");
-    let mut ret = HashMap::<u64, u64>::new();
-    match per_chrom {
-        false => {
-            ret.insert(0, genome.span - intervals.cov());
-        }
-        true => {
-            for i in genome.chrom.iter() {
-                ret.insert(
-                    i.start,
-                    intervals
-                        .find(i.start, i.stop)
-                        .map(|p| p.stop - p.start)
-                        .sum(),
-                );
-            }
-        }
-    }
-    ret
 }
 
 fn main() -> std::io::Result<()> {
@@ -283,10 +209,6 @@ fn main() -> std::io::Result<()> {
         .init();
 
     // IO
-    for i in GapBreaks::new(10) {
-        println!("x - {}:{}", i.0, i.1);
-    }
-        std::process::exit(1);
     let args = cli::ArgParser::parse();
     if !cli::validate_args(&args) {
         error!("please fix arguments");
@@ -320,7 +242,7 @@ fn main() -> std::io::Result<()> {
         cli::Randomizer::Circle => circle_intervals,
         cli::Randomizer::Shuffle => shuffle_intervals,
         cli::Randomizer::Novl => {
-            genome.gap_budget = Some(make_gap_budget(&genome, &a_lapper, &args.per_chrom));
+            genome.make_gap_budget(&a_lapper, &args.per_chrom);
             novl_intervals
         }
     };

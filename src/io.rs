@@ -21,6 +21,28 @@ pub struct GenomeShift {
     pub gap_budget: Option<HashMap<u64, u64>>,
 }
 
+impl GenomeShift {
+    pub fn make_gap_budget(&mut self, intervals: &Lapper<u64, u64>, per_chrom: &bool) {
+        let mut ret = HashMap::<u64, u64>::new();
+        match per_chrom {
+            false => {
+                ret.insert(0, self.span - intervals.cov());
+            }
+            true => {
+                for i in self.chrom.iter() {
+                    ret.insert(
+                        i.start,
+                        intervals
+                            .find(i.start, i.stop)
+                            .map(|p| p.stop - p.start)
+                            .sum(),
+                    );
+                }
+            }
+        }
+        self.gap_budget = Some(ret);
+    }
+}
 // The output is wrapped in a Result to allow matching on errors
 // Returns an Iterator to the Reader of the lines of the file.
 pub fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
