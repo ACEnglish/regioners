@@ -5,7 +5,7 @@ extern crate log;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
-
+use std::thread::{JoinHandle, Builder};
 
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
@@ -310,24 +310,28 @@ fn main() -> std::io::Result<()> {
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
     info!("{} intersections", initial_overlap_count);
 
-    let mut handles = Vec::new();
     let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
 
     let (a_len, b_len) = (a_lapper.len(), b_lapper.len());
 
-    for i in 0..args.threads as u32 {
-        let m_a = a_lapper.clone();
-        let m_b = b_lapper.clone();
-        let m_genome = genome.clone();
-        // Send chunk to thread
-        let start_iter = i * chunk_size;
-        let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
-        handles.push(std::thread::spawn(move || {
-            (start_iter..stop_iter)
-                .map(|_| overlapper(&randomizer(&m_a, &m_genome, args.per_chrom), &m_b))
-                .collect()
-        }));
-    }
+    let handles: Vec<JoinHandle<Vec<u64>>> = (0..args.threads)
+        .map(|i| {
+            let m_a = a_lapper.clone();
+            let m_b = b_lapper.clone();
+            let m_genome = genome.clone();
+            let builder = Builder::new().name(format!("regionRs-{}", i));
+            // Send chunk to thread
+            let start_iter = (i as u32) * chunk_size;
+            let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
+            builder
+                .spawn(move || {
+                    (start_iter..stop_iter)
+                        .map(|_| overlapper(&randomizer(&m_a, &m_genome, args.per_chrom), &m_b))
+                        .collect()
+                })
+                .unwrap()
+        })
+        .collect();
 
     // Collect
     let mut all_counts: Vec<u64> = vec![];
