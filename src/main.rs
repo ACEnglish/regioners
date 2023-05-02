@@ -138,7 +138,7 @@ fn novl_intervals(
     };
 
     for subi in spans {
-        let mut cur_intervals: Vec<io::Iv> = vec![];
+        let mut cur_intervals: Vec<(bool, u64)> = vec![];
         let mut m_gap: u64 = match &genome.gap_budget {
             Some(g) => g[&subi.start],
             None => panic!("How are you using the gap_budget without making it first?"),
@@ -146,32 +146,28 @@ fn novl_intervals(
         //let mut num_gap_pieces = 0;
         while m_gap > 0 {
             let g_l = rand.next_range(1..std::cmp::max(2, m_gap / NOVLMAGIC));
-            cur_intervals.push(io::Iv {
-                start: 0,
-                stop: 0,
-                val: g_l,
-            });
+            cur_intervals.push((false, g_l));
             m_gap -= g_l;
             //num_gap_pieces += 1;
         }
         //info!("gap pieces {}", num_gap_pieces);
 
-        cur_intervals.extend(intv.find(subi.start, subi.stop).cloned());
+        cur_intervals.extend(
+            intv.find(subi.start, subi.stop)
+                .map(|i| (true, i.stop - i.start)),
+        );
         fastrand::shuffle(&mut cur_intervals);
 
         let mut cur_pos = subi.start;
         for i in cur_intervals {
-            if i.val == 0 {
-                let span = i.stop - i.start;
+            if i.0 {
                 ret.push(io::Iv {
                     start: cur_pos,
-                    stop: cur_pos + span,
+                    stop: cur_pos + i.1,
                     val: 0,
                 });
-                cur_pos += span;
-            } else {
-                cur_pos += i.val;
             }
+            cur_pos += i.1;
         }
     }
 
@@ -303,6 +299,13 @@ fn main() -> std::io::Result<()> {
         }
     };
 
+    // profiling
+    /*let guard = pprof::ProfilerGuardBuilder::default()
+        .frequency(1000)
+        .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+        .build()
+        .unwrap();*/
+
     // Processing
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
     info!("{} intersections", initial_overlap_count);
@@ -330,7 +333,9 @@ fn main() -> std::io::Result<()> {
         let result: Vec<u64> = handle.join().unwrap();
         all_counts.extend(result);
     }
-
+    /*if let Ok(report) = guard.report().build() {
+        println!("report: {:?}", &report);
+    };*/
     // Calculate
     let (mu, sd) = mean_std(&all_counts);
     let alt = if (initial_overlap_count as f64) < mu {
