@@ -73,45 +73,47 @@ pub enum Counter {
     Any = 1,
 }
 
-pub fn validate_args(args: &ArgParser) -> bool {
-    let mut is_ok = true;
-    if !args.bed_a.is_file() {
-        error!("-A file doesn't exist");
-        is_ok = false;
-    }
-    if !args.bed_b.is_file() {
-        error!("-B file doesn't exist");
-        is_ok = false;
-    }
-    if !args.genome.is_file() {
-        error!("--genome file doesn't exist");
-        is_ok = false;
-    }
-
-    if let Some(m) = &args.mask {
-        if !m.is_file() {
-            error!("--mask file doesn't exist");
+impl ArgParser {
+    pub fn validate(&self) -> bool {
+        let mut is_ok = true;
+        if !self.bed_a.is_file() {
+            error!("-A file doesn't exist");
             is_ok = false;
         }
-    }
+        if !self.bed_b.is_file() {
+            error!("-B file doesn't exist");
+            is_ok = false;
+        }
+        if !self.genome.is_file() {
+            error!("--genome file doesn't exist");
+            is_ok = false;
+        }
 
-    if args.threads < 1 {
-        warn!("need at least 1 thread");
-        is_ok = false;
-    }
+        if let Some(m) = &self.mask {
+            if !m.is_file() {
+                error!("--mask file doesn't exist");
+                is_ok = false;
+            }
+        }
 
-    if (args.random == Randomizer::Novl) & args.no_merge {
-        warn!("using `novl` without merged overlaps may cause errors");
-        is_ok = false;
-    }
+        if self.threads < 1 {
+            warn!("need at least 1 thread");
+            is_ok = false;
+        }
 
-    if args.num_times < 100 {
-        warn!(
-            "minimum p-value with {} is {}.",
-            args.num_times,
-            1.0 / ((args.num_times as f32) + 1.0)
-        );
-    }
+        if (self.random == Randomizer::Novl) & self.no_merge {
+            warn!("using `novl` without merged overlaps may cause errors");
+            is_ok = false;
+        }
 
-    is_ok
+        if self.num_times < 100 {
+            warn!(
+                "minimum p-value with {} is {}.",
+                self.num_times,
+                1.0 / ((self.num_times as f32) + 1.0)
+            );
+        }
+
+        is_ok
+    }
 }
