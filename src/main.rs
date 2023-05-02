@@ -5,7 +5,7 @@ extern crate log;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
-use std::thread::{JoinHandle, Builder};
+use std::thread::{Builder, JoinHandle};
 
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
@@ -41,26 +41,27 @@ fn shuffle_intervals(
     /*
         Randomly move each interval to new position
     */
-    let mut ret = Vec::<io::Iv>::new();
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
-
-    for i in intv.iter() {
-        let (lower, upper) = if per_chrom {
-            match genome.chrom.find(i.start, i.stop).next() {
-                Some(b) => (b.start, b.stop),
-                None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop),
-            }
-        } else {
-            (0, genome.span)
-        };
-        let shift = rand.next_range(lower..(upper - (i.stop - i.start)));
-        ret.push(io::Iv {
-            start: i.start + shift,
-            stop: i.stop + shift,
-            val: 0,
-        });
-    }
-    Lapper::<u64, u64>::new(ret)
+    Lapper::<u64, u64>::new(
+        intv.iter()
+            .map(|i| {
+                let (lower, upper) = if per_chrom {
+                    match genome.chrom.find(i.start, i.stop).next() {
+                        Some(b) => (b.start, b.stop),
+                        None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop),
+                    }
+                } else {
+                    (0, genome.span)
+                };
+                let shift = rand.next_range(lower..(upper - (i.stop - i.start)));
+                io::Iv {
+                    start: i.start + shift,
+                    stop: i.stop + shift,
+                    val: 0,
+                }
+            })
+            .collect(),
+    )
 }
 
 fn circle_intervals(
@@ -96,16 +97,18 @@ fn circle_intervals(
                 val: 0,
             });
         } else if new_end > upper {
-            ret.push(io::Iv {
-                start: new_start,
-                stop: upper,
-                val: 0,
-            });
-            ret.push(io::Iv {
-                start: lower,
-                stop: new_end - upper,
-                val: 0,
-            });
+            ret.extend(vec![
+                io::Iv {
+                    start: new_start,
+                    stop: upper,
+                    val: 0,
+                },
+                io::Iv {
+                    start: lower,
+                    stop: new_end - upper,
+                    val: 0,
+                },
+            ]);
         } else {
             ret.push(io::Iv {
                 start: new_start,
@@ -170,7 +173,6 @@ fn novl_intervals(
             cur_pos += i.1;
         }
     }
-
     Lapper::<u64, u64>::new(ret)
 }
 

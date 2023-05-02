@@ -78,7 +78,7 @@ difference. To accomplish this, simply specify `--no-swap`
 Test of 1,000 permutations on 29,598 promoter regions tested against 1,784,804 TRs using 4 cores on a Mac book.
 For comparison, a regioneR test of *100* permutations on above data in an Rstudio docker: 1292.313s
 
-- --random shuffle: 3.7s
+- --random shuffle: 3.4s
 - --random shuffle --per-chrom : 3.2s
 - --random circle : 2.8s
 - --random circle --per-chrom : 2.8s
