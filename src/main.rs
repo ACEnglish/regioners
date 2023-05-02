@@ -120,6 +120,33 @@ fn circle_intervals(
     Lapper::<u64, u64>::new(ret)
 }
 
+struct GapBreaks {
+    budget: u64,
+    rand: StdRand,
+}
+
+impl GapBreaks {
+    fn new(m_budget: u64) -> Self {
+        Self {
+            budget: m_budget,
+            rand: StdRand::seed(ClockSeed::default().next_u64()),
+        }
+    }
+}
+
+impl Iterator for GapBreaks {
+    type Item = (bool, u64);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.budget > 0 {
+            let g_l = self.rand.next_range(1..std::cmp::max(2, self.budget / NOVLMAGIC));
+            self.budget -= g_l;
+            return Some((false, g_l));
+        }
+        None
+    }
+}
+
 fn novl_intervals(
     intv: &Lapper<u64, u64>,
     genome: &io::GenomeShift,
@@ -147,11 +174,11 @@ fn novl_intervals(
             None => panic!("How are you using the gap_budget without making it first?"),
         };
         //let mut num_gap_pieces = 0;
+
         while m_gap > 0 {
             let g_l = rand.next_range(1..std::cmp::max(2, m_gap / NOVLMAGIC));
-            cur_intervals.push((false, g_l));
             m_gap -= g_l;
-            //num_gap_pieces += 1;
+            cur_intervals.push((false, g_l));
         }
         //info!("gap pieces {}", num_gap_pieces);
 
@@ -216,18 +243,11 @@ fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
     /*
         Return number of permutations the observed count is (g)reater or (l)ess than
     */
-    let mut g_count: f64 = 0.0;
-    if alt == 'l' {
-        for i in obs {
-            g_count += if o_count >= *i { 1.0 } else { 0.0 };
-        }
-    } else if alt == 'g' {
-        for i in obs {
-            g_count += if o_count <= *i { 1.0 } else { 0.0 };
-        }
+    match alt {
+        'l' => obs.iter().map(|i| (o_count >= *i) as u8 as f64).sum(),
+        'g' => obs.iter().map(|i| (o_count <= *i) as u8 as f64).sum(),
+        _ => panic!("Invalid alt")
     }
-
-    g_count
 }
 
 // Should probably go into an implementation of GenomeShift
@@ -263,6 +283,10 @@ fn main() -> std::io::Result<()> {
         .init();
 
     // IO
+    for i in GapBreaks::new(10) {
+        println!("x - {}:{}", i.0, i.1);
+    }
+        std::process::exit(1);
     let args = cli::ArgParser::parse();
     if !cli::validate_args(&args) {
         error!("please fix arguments");
