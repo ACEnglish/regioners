@@ -87,13 +87,16 @@ The output is a json with structure:
 - A_cnt : number of entries in `-A` (note may be swapped from original paramter)
 - B_cnt : number of entries in `-B` (note may be swapped from original paramter)
 - alt : alternate hypothesis used for p-value - 'l'ess or 'g'reater
-- no_merge : value of `merge-overlaps` parameter
+- counter : all (0) or any (1) counter used
+- no_merge : input beds overlaps were not merged before processing if true
 - n : number of permutations performed
 - obs : observed number of intersections
+- per_chrom : randomization performed per-chromosome
 - perm_mu : permutations' mean
 - perm_sd : permutations' standard deviation
 - perms : list of permutations' number of intersections
 - pval : permutation test's p-value
+- random : shuffle (0), circle (1), novl (2) randomizer used
 - swapped : were `-A` and `-B` swapped
 - zscore : permutation test's zscore
 

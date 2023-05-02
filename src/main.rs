@@ -17,16 +17,18 @@ use serde_json::json;
 mod cli;
 mod io;
 
-
-const NOVLMAGIC: u64 = 100;
+const NOVLMAGIC: u64 = 10000;
 /* When performing novl randomization, we break the uncovered spans of
 *  the genome into pieces and shuffle them along with the intervals.
 *  Truly random novl would break all the uncovered spans into 1bp pieces.
-*  However, this is extremly inefficient. Instead, we break it into pieces 
-*  randomly between 1bp and some percent of the gap_budget (gap_pct).
-*  NOVLMAGIC is calculated as int(1 / gap_pct)
+*  However, this is extremly inefficient. Instead, we break it into pieces
+*  randomly between 1bp and some maximum size. If this maximum size was
+*  the length of all uncovered spans, we could end up making one giant
+*  uncovered span and then grouping all the intervals end-to-end.
+*  By setting the maximum size to some percent of the uncovered span
+*  we lower the bias towards making large gaps.
+*  NOVLMAGIC is calculated as int(1 / max_size_percent)
 */
-
 
 // ***********
 // Randomizers
@@ -124,39 +126,56 @@ fn novl_intervals(
         Randomly move each interval to new position without overlapping them
     */
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
-    let mut m_intervals = intv.intervals.clone();
     let mut ret: Vec<io::Iv> = vec![];
-    if !per_chrom {
-        let mut m_gap : u64 = match &genome.gap_budget {
-            Some(g) => g[&0],
-            None => panic!("How are you using the gap_budget without making it first?")
+
+    let spans = match per_chrom {
+        false => vec![io::Iv {
+            start: 0,
+            stop: genome.span,
+            val: 0,
+        }],
+        true => genome.chrom.intervals.clone(),
+    };
+
+    for subi in spans {
+        let mut cur_intervals: Vec<io::Iv> = vec![];
+        let mut m_gap: u64 = match &genome.gap_budget {
+            Some(g) => g[&subi.start],
+            None => panic!("How are you using the gap_budget without making it first?"),
         };
+        //let mut num_gap_pieces = 0;
         while m_gap > 0 {
             let g_l = rand.next_range(1..std::cmp::max(2, m_gap / NOVLMAGIC));
-            m_intervals.push(io::Iv {
+            cur_intervals.push(io::Iv {
                 start: 0,
                 stop: 0,
                 val: g_l,
             });
             m_gap -= g_l;
+            //num_gap_pieces += 1;
         }
+        //info!("gap pieces {}", num_gap_pieces);
 
-        fastrand::shuffle(&mut m_intervals);
+        //cur_intervals.extend(intv.find(subi.start, subi.stop).collect::<Vec<_>>());
+        for i in intv.find(subi.start, subi.stop) {
+            cur_intervals.push(i.clone())
+        }
+        fastrand::shuffle(&mut cur_intervals);
 
-        let mut cur_pos = 0;
-        for i in m_intervals {
+        let mut cur_pos = subi.start;
+        for i in cur_intervals {
             if i.val == 0 {
+                let span = i.stop - i.start;
                 ret.push(io::Iv {
                     start: cur_pos,
-                    stop: cur_pos + i.val,
+                    stop: cur_pos + span,
                     val: 0,
                 });
+                cur_pos += span;
+            } else {
+                cur_pos += i.val;
             }
-            cur_pos += i.val;
         }
-    } else {
-        error!("can't run --random novl with --per-chrom, yet");
-        std::process::exit(1);
     }
 
     Lapper::<u64, u64>::new(ret)
@@ -225,12 +244,17 @@ fn make_gap_budget(
     info!("making gap budget");
     let mut ret = HashMap::<u64, u64>::new();
     match per_chrom {
-        false => { ret.insert(0, genome.span - intervals.cov()); },
+        false => {
+            ret.insert(0, genome.span - intervals.cov());
+        }
         true => {
             for i in genome.chrom.iter() {
                 ret.insert(
                     i.start,
-                    intervals.find(i.start, i.stop).map(|p| p.stop - p.start).sum(),
+                    intervals
+                        .find(i.start, i.stop)
+                        .map(|p| p.stop - p.start)
+                        .sum(),
                 );
             }
         }
@@ -342,6 +366,8 @@ fn main() -> std::io::Result<()> {
                       "n": args.num_times,
                       "swapped": swapped,
                       "no_merge": args.no_merge,
+                      "random": args.random as u8,
+                      "counter": args.count as u8,
                       "A_cnt" : a_lapper.len(),
                       "B_cnt" : b_lapper.len(),
                       "per_chrom": args.per_chrom,

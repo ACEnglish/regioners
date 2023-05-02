@@ -58,19 +58,19 @@ pub struct ArgParser {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Randomizer {
     // shuffle intervals allowing overlaps
-    Shuffle,
+    Shuffle = 0,
     // rotate intervals preserving order/spacing
-    Circle,
+    Circle = 1,
     // shuffle intervals without allowing overlaps
-    Novl,
+    Novl = 2,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Counter {
     // count number of overlaps
-    All,
+    All = 0,
     // count if any overlap
-    Any,
+    Any = 1,
 }
 
 pub fn validate_args(args: &ArgParser) -> bool {

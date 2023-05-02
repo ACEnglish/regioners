@@ -1,13 +1,13 @@
 extern crate pretty_env_logger;
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
 use rust_lapper::{Interval, Lapper};
-pub type Iv = Interval<u64, u64>;
 
-use std::collections::HashMap;
+pub type Iv = Interval<u64, u64>;
 pub type MaskShift = HashMap<String, Lapper<u64, u64>>;
 
 #[derive(Clone)]
