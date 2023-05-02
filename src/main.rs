@@ -14,10 +14,10 @@ use rust_lapper::Lapper;
 use serde_json::json;
 
 mod cli;
-mod io;
 mod gapbreaks;
+mod io;
 
-use crate::gapbreaks::{GapBreaks};
+use crate::gapbreaks::GapBreaks;
 
 // ***********
 // Randomizers
@@ -192,7 +192,7 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
     (mean, std_dev)
 }
 
-fn count_permutations(o_count: u64, obs: &Vec<u64>, alt: char) -> f64 {
+fn count_permutations(o_count: u64, obs: &[u64], alt: char) -> f64 {
     /*
         Return number of permutations the observed count is (g)reater or (l)ess than
     */
