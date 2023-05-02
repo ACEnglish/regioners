@@ -256,7 +256,7 @@ fn main() -> std::io::Result<()> {
 
     // Processing
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
-    info!("{} intersections", initial_overlap_count);
+    info!("observed : {}", initial_overlap_count);
 
     let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
 
@@ -310,7 +310,7 @@ fn main() -> std::io::Result<()> {
     // Output
     info!("perm mu: {}", mu);
     info!("perm sd: {}", sd);
-    info!("alt : {}", alt);
+    info!("alt hypo : {}", alt);
     info!("p-val : {}", p_val);
 
     let data = json!({"pval": p_val,
