@@ -301,10 +301,10 @@ fn main() -> std::io::Result<()> {
 
     // profiling
     /*let guard = pprof::ProfilerGuardBuilder::default()
-        .frequency(1000)
-        .blocklist(&["libc", "libgcc", "pthread", "vdso"])
-        .build()
-        .unwrap();*/
+    .frequency(1000)
+    .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+    .build()
+    .unwrap();*/
 
     // Processing
     let initial_overlap_count: u64 = overlapper(&a_lapper, &b_lapper);
@@ -313,6 +313,8 @@ fn main() -> std::io::Result<()> {
     let mut handles = Vec::new();
     let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
 
+    let (a_len, b_len) = (a_lapper.len(), b_lapper.len());
+
     for i in 0..args.threads as u32 {
         let m_a = a_lapper.clone();
         let m_b = b_lapper.clone();
@@ -320,7 +322,7 @@ fn main() -> std::io::Result<()> {
         // Send chunk to thread
         let start_iter = i * chunk_size;
         let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
-        handles.push(thread::spawn(move || {
+        handles.push(std::thread::spawn(move || {
             (start_iter..stop_iter)
                 .map(|_| overlapper(&randomizer(&m_a, &m_genome, args.per_chrom), &m_b))
                 .collect()
@@ -370,8 +372,8 @@ fn main() -> std::io::Result<()> {
                       "no_merge": args.no_merge,
                       "random": args.random as u8,
                       "counter": args.count as u8,
-                      "A_cnt" : a_lapper.len(),
-                      "B_cnt" : b_lapper.len(),
+                      "A_cnt" : a_len,
+                      "B_cnt" : b_len,
                       "per_chrom": args.per_chrom,
                       "perms": all_counts});
     let json_str = serde_json::to_string(&data).unwrap();
