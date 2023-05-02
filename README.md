@@ -43,11 +43,12 @@ How intervals are randomized is an important part of the permutation test. By de
 `(x1±r1, y1±r1)` and `(x2±r2, y2±r2)`. 
 
 With `circle`, all regions are shifted by a set amount such that their spatial distances are preserved. i.e. 
-`(x1±r1, y1±r1), (x2±r1, y2±r1)`
+`(x1±r1, y1±r1)`, `(x2±r1, y2±r1)`
 
 The `novl` method looks at all uncovered spans of the genome and randomly breaks them up into smaller segments. It 
 then shuffles all intervals with the uncovered segments. This shuffled list is then re-placed along the genome,
-discarding the uncovered spans and updating the intervals to their new position.
+discarding the uncovered spans and updating the intervals to their new position. Note that this strategy is slightly
+less random.
 
 #### Controlling placment with `--per-chrom`
 

@@ -129,12 +129,12 @@ fn novl_intervals(
     let mut ret: Vec<io::Iv> = vec![];
 
     let spans = match per_chrom {
+        true => genome.chrom.intervals.clone(),
         false => vec![io::Iv {
             start: 0,
             stop: genome.span,
             val: 0,
         }],
-        true => genome.chrom.intervals.clone(),
     };
 
     for subi in spans {
