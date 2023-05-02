@@ -5,7 +5,7 @@ extern crate log;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
-use std::thread;
+
 
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
