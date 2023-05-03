@@ -23,53 +23,43 @@ impl Randomizer {
         genome: &GenomeShift,
         per_chrom: bool,
     ) -> Lapper<u64, u64> {
-        match self {
-            Randomizer::Circle => circle_intervals(intv, genome, per_chrom),
-            Randomizer::Shuffle => shuffle_intervals(intv, genome, per_chrom),
+        Lapper::<u64, u64>::new((match self {
+            Randomizer::Circle => circle_intervals,
+            Randomizer::Shuffle => shuffle_intervals,
             Randomizer::Novl => match genome.gap_budget {
-                Some(_) => novl_intervals(intv, genome, per_chrom),
+                Some(_) => novl_intervals,
                 None => panic!("Cannot run novl randomizer without gap_budget in genome"),
             },
-        }
+        })(intv, genome, per_chrom))
     }
 }
 
-fn shuffle_intervals(
-    intv: &Lapper<u64, u64>,
-    genome: &GenomeShift,
-    per_chrom: bool,
-) -> Lapper<u64, u64> {
+fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool) -> Vec<Iv> {
     /*
         Randomly move each interval to new position
     */
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
-    Lapper::<u64, u64>::new(
-        intv.iter()
-            .map(|i| {
-                let (lower, upper) = if per_chrom {
-                    match genome.chrom.find(i.start, i.stop).next() {
-                        Some(b) => (b.start, b.stop),
-                        None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop),
-                    }
-                } else {
-                    (0, genome.span)
-                };
-                let shift = rand.next_range(lower..(upper - (i.stop - i.start)));
-                Iv {
-                    start: i.start + shift,
-                    stop: i.stop + shift,
-                    val: 0,
+    intv.iter()
+        .map(|i| {
+            let (lower, upper) = if per_chrom {
+                match genome.chrom.find(i.start, i.stop).next() {
+                    Some(b) => (b.start, b.stop),
+                    None => panic!("Interval @ ({}, {}) not hitting genome", i.start, i.stop),
                 }
-            })
-            .collect(),
-    )
+            } else {
+                (0, genome.span)
+            };
+            let shift = rand.next_range(lower..(upper - (i.stop - i.start)));
+            Iv {
+                start: i.start + shift,
+                stop: i.stop + shift,
+                val: 0,
+            }
+        })
+        .collect()
 }
 
-fn circle_intervals(
-    intv: &Lapper<u64, u64>,
-    genome: &GenomeShift,
-    per_chrom: bool,
-) -> Lapper<u64, u64> {
+fn circle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool) -> Vec<Iv> {
     /*
         Randomly shift all intervals downstream with wrap-around
     */
@@ -118,14 +108,10 @@ fn circle_intervals(
             });
         }
     }
-    Lapper::<u64, u64>::new(ret)
+    ret
 }
 
-fn novl_intervals(
-    intv: &Lapper<u64, u64>,
-    genome: &GenomeShift,
-    per_chrom: bool,
-) -> Lapper<u64, u64> {
+fn novl_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool) -> Vec<Iv> {
     /*
         Randomly move each interval to new position without overlapping them
     */
@@ -165,5 +151,5 @@ fn novl_intervals(
             cur_pos += i.1;
         }
     }
-    Lapper::<u64, u64>::new(ret)
+    ret
 }
