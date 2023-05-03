@@ -9,6 +9,7 @@ use std::thread::{Builder, JoinHandle};
 use clap::Parser;
 use rust_lapper::Lapper;
 use serde_json::json;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 mod cli;
 mod gapbreaks;
@@ -108,22 +109,36 @@ fn main() -> std::io::Result<()> {
     // Processing
     let initial_overlap_count: u64 = overlapper(&a_intv, &b_intv);
     info!("observed : {}", initial_overlap_count);
-
+    
+    let progs = MultiProgress::new();
+    let sty = ProgressStyle::with_template(
+        "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+    )
+    .unwrap()
+    .progress_chars("##-");
+    
     let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
+    let mut pb : Vec<ProgressBar> = vec![];
+    for _i in 0..args.threads {
+        let p = progs.add(ProgressBar::new(chunk_size.into()));
+        p.set_style(sty.clone());
+        pb.push(p);
+    }
+
     let handles: Vec<JoinHandle<Vec<u64>>> = (0..args.threads)
         .map(|i| {
             let m_a = a_intv.clone();
             let m_b = b_intv.clone();
             let m_g = genome.clone();
+            let m_i = i.clone() as usize;
+            let m_p = pb[m_i].clone();
             let builder = Builder::new().name(format!("regionRs-{}", i));
             // Send chunk to thread
             let start_iter = (i as u32) * chunk_size;
             let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
             builder
                 .spawn(move || {
-                    (start_iter..stop_iter)
-                        .map(|_| overlapper(&randomizer(&m_a, &m_g, args.per_chrom), &m_b))
-                        .collect()
+                    (start_iter..stop_iter).map(|_| { m_p.inc(1); overlapper(&randomizer(&m_a, &m_g, args.per_chrom), &m_b) }).collect()
                 })
                 .unwrap()
         })
@@ -135,6 +150,7 @@ fn main() -> std::io::Result<()> {
         let result: Vec<u64> = handle.join().unwrap();
         all_counts.extend(result);
     }
+    progs.clear().unwrap();
     /*if let Ok(report) = guard.report().build() { println!("report: {:?}", &report); };*/
 
     // Calculate
