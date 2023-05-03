@@ -1,6 +1,6 @@
 use clap::ValueEnum;
-use serde::Serialize;
 use rust_lapper::Lapper;
+use serde::Serialize;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
