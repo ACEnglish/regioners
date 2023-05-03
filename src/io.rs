@@ -24,20 +24,17 @@ pub struct GenomeShift {
 impl GenomeShift {
     pub fn make_gap_budget(&mut self, intervals: &Lapper<u64, u64>, per_chrom: &bool) {
         let mut ret = HashMap::<u64, u64>::new();
-        match per_chrom {
-            false => {
-                ret.insert(0, self.span - intervals.cov());
-            }
-            true => {
-                for i in self.chrom.iter() {
-                    ret.insert(
-                        i.start,
-                        intervals
-                            .find(i.start, i.stop)
-                            .map(|p| p.stop - p.start)
-                            .sum(),
-                    );
-                }
+        if *per_chrom {
+            ret.insert(0, self.span - intervals.cov());
+        } else {
+            for i in self.chrom.iter() {
+                ret.insert(
+                    i.start,
+                    intervals
+                        .find(i.start, i.stop)
+                        .map(|p| p.stop - p.start)
+                        .sum(),
+                );
             }
         }
         self.gap_budget = Some(ret);
@@ -58,9 +55,9 @@ where
 struct BedParser {
     /* Read tab delimited bed files while ensuring entries have start < end.
     It also ensures entries are sorted */
-    file : std::path::PathBuf,
-    prev_chrom : String,
-    prev_start : u64,
+    file: std::path::PathBuf,
+    prev_chrom: String,
+    prev_start: u64,
 }
 
 impl BedParser {
@@ -68,41 +65,48 @@ impl BedParser {
         Self {
             file: path.to_path_buf(),
             prev_chrom: String::new(),
-            prev_start: 0
+            prev_start: 0,
         }
     }
 
     pub fn parse(&mut self, three_cols: bool) -> Vec<(String, u64, u64)> {
         if let Ok(lines) = read_lines(&mut self.file) {
-            lines.flatten().map(|line| {
-                let collection: Vec<&str> = line.split('\t').collect();
-                let n_cols = if three_cols {3} else {2};
-                if collection.len() < n_cols {
-                    error!("malformed bed line: {}", line);
-                    std::process::exit(1);
-                }
-                let chrom = collection[0].to_string();
-                let m_start = collection[1].parse::<u64>().unwrap();
-                let m_stop = if three_cols {collection[2].parse::<u64>().unwrap()} else {m_start + 1};
+            lines
+                .flatten()
+                .map(|line| {
+                    let collection: Vec<&str> = line.split('\t').collect();
+                    let n_cols = if three_cols { 3 } else { 2 };
+                    if collection.len() < n_cols {
+                        error!("malformed bed line: {}", line);
+                        std::process::exit(1);
+                    }
+                    let chrom = collection[0].to_string();
+                    let m_start = collection[1].parse::<u64>().unwrap();
+                    let m_stop = if three_cols {
+                        collection[2].parse::<u64>().unwrap()
+                    } else {
+                        m_start + 1
+                    };
 
-                if chrom != self.prev_chrom {
-                    self.prev_chrom = chrom.clone();
-                    self.prev_start = 0;
-                }
+                    if chrom != self.prev_chrom {
+                        self.prev_chrom = chrom.clone();
+                        self.prev_start = 0;
+                    }
 
-                if m_stop <= m_start {
-                    error!("malformed bed line: stop <= start {}", line);
-                    std::process::exit(1);
-                }
-                if m_start < self.prev_start {
-                    error!(
-                        "bed file unordered `sort -k3n -k1,2n` offending line {}",
-                        line
-                    );
-                    std::process::exit(1);
-                }               
-                (chrom, m_start, m_stop)
-            }).collect()
+                    if m_stop <= m_start {
+                        error!("malformed bed line: stop <= start {}", line);
+                        std::process::exit(1);
+                    }
+                    if m_start < self.prev_start {
+                        error!(
+                            "bed file unordered `sort -k3n -k1,2n` offending line {}",
+                            line
+                        );
+                        std::process::exit(1);
+                    }
+                    (chrom, m_start, m_stop)
+                })
+                .collect()
         } else {
             panic!("unable to read bed file");
         }
@@ -155,7 +159,7 @@ pub fn read_genome(file: &std::path::PathBuf, mask: &Option<MaskShift>) -> Genom
     let mut m_shift: HashMap<String, u64> = HashMap::new();
     let mut cur_start: u64 = 0;
     let mut tot_masked: u64 = 0;
-    
+
     let mut m_parser = BedParser::new(file);
     for (chrom, mut size, _) in m_parser.parse(false) {
         let masked_bases = match mask {
@@ -193,11 +197,7 @@ pub fn read_genome(file: &std::path::PathBuf, mask: &Option<MaskShift>) -> Genom
     }
 }
 
-pub fn read_bed(
-    file: &Path,
-    genome: &GenomeShift,
-    mask: &Option<MaskShift>,
-) -> Lapper<u64, u64> {
+pub fn read_bed(file: &Path, genome: &GenomeShift, mask: &Option<MaskShift>) -> Lapper<u64, u64> {
     /*
     Read bed file into a Lapper
     */
@@ -243,7 +243,7 @@ pub fn read_bed(
             }
         }
 
-        // end-to-end chrom coordinates will r_shift (increase). 
+        // end-to-end chrom coordinates will r_shift (increase).
         // maksed bases before start will l_shift (decrease).
         ret.push(Iv {
             start: m_start + r_shift - l_shift,

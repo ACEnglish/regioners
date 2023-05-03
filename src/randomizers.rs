@@ -9,11 +9,11 @@ use rust_lapper::Lapper;
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Randomizer {
     // shuffle intervals allowing overlaps
-    Shuffle = 0,
+    Shuffle,
     // rotate intervals preserving order/spacing
-    Circle = 1,
+    Circle,
     // shuffle intervals without allowing overlaps
-    Novl = 2,
+    Novl,
 }
 
 impl Randomizer {
@@ -31,6 +31,16 @@ impl Randomizer {
                 None => panic!("Cannot run novl randomizer without gap_budget in genome"),
             },
         })(intv, genome, per_chrom))
+    }
+}
+
+impl ::serde::Serialize for Randomizer {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(match *self {
+            Randomizer::Shuffle => "shuffle",
+            Randomizer::Circle => "circle",
+            Randomizer::Novl=> "novl",
+        })
     }
 }
 

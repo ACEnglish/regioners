@@ -32,12 +32,18 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
     (mean, std_dev)
 }
 
-fn count_permutations(o_count: u64, obs: &[u64], alt: char) -> f64 {
+#[derive(Clone, Copy)]
+#[repr(u8)]
+enum Alternate {
+    Less = b'l',
+    Greater = b'g',
+}
+
+fn count_permutations(o_count: u64, obs: &[u64], alt: Alternate) -> f64 {
     /* Return number of permutations the observed count is (g)reater or (l)ess than */
     match alt {
-        'l' => obs.iter().map(|i| (o_count >= *i) as u8 as f64).sum(),
-        'g' => obs.iter().map(|i| (o_count <= *i) as u8 as f64).sum(),
-        _ => panic!("Invalid alt"),
+        Alternate::Less => obs.iter().map(|i| (o_count >= *i) as u8 as f64).sum(),
+        Alternate::Greater => obs.iter().map(|i| (o_count <= *i) as u8 as f64).sum(),
     }
 }
 // **********
@@ -65,13 +71,12 @@ fn main() -> std::io::Result<()> {
         a_intv.merge_overlaps();
         b_intv.merge_overlaps();
     }
-    let swapped = match !args.no_swap & (a_intv.len() > b_intv.len()) {
-        true => {
-            info!("swapping A for shorter B");
-            std::mem::swap(&mut a_intv, &mut b_intv);
-            true
-        }
-        false => false,
+    let swapped = if !args.no_swap & (a_intv.len() > b_intv.len()) {
+        info!("swapping A for shorter B");
+        std::mem::swap(&mut a_intv, &mut b_intv);
+        true
+    } else {
+        false
     };
     if args.random == Randomizer::Novl {
         genome.make_gap_budget(&a_intv, &args.per_chrom)
@@ -135,24 +140,24 @@ fn main() -> std::io::Result<()> {
 
     // Calculate
     let (mu, sd) = mean_std(&all_counts);
-    let alt = match (initial_overlap_count as f64) < mu {
-        true => 'l',
-        false => 'g',
+    let alt = if (initial_overlap_count as f64) < mu {
+        Alternate::Less
+    } else {
+        Alternate::Greater
     };
     let g_count = count_permutations(initial_overlap_count, &all_counts, alt);
     let p_val = (g_count + 1.0) / ((all_counts.len() as f64) + 1.0);
-    let z_score = match (initial_overlap_count == 0) & (mu == 0.0) {
-        true => {
-            warn!("z_score cannot be computed");
-            0.0
-        }
-        false => ((initial_overlap_count as f64) - mu) / sd,
+    let z_score = if (initial_overlap_count == 0) & (mu == 0.0) {
+        warn!("z_score cannot be computed");
+        0.0
+    } else {
+        ((initial_overlap_count as f64) - mu) / sd
     };
 
     // Output
     info!("perm mu: {}", mu);
     info!("perm sd: {}", sd);
-    info!("alt hypo : {}", alt);
+    info!("alt hypo : {}", alt as u8 as char);
     info!("p-val : {}", p_val);
 
     let data = json!({"pval": p_val,
@@ -160,12 +165,12 @@ fn main() -> std::io::Result<()> {
                       "obs":initial_overlap_count,
                       "perm_mu": mu,
                       "perm_sd": sd,
-                      "alt": alt,
+                      "alt": alt as u8 as char,
                       "n": args.num_times,
                       "swapped": swapped,
                       "no_merge": args.no_merge,
-                      "random": args.random as u8,
-                      "counter": args.count as u8,
+                      "random": args.random,
+                      "count": args.count,
                       "A_cnt" : a_intv.len(),
                       "B_cnt" : b_intv.len(),
                       "per_chrom": args.per_chrom,
