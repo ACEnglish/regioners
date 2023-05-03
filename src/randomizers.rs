@@ -1,6 +1,6 @@
 use clap::ValueEnum;
-use serde::Serialize;
 use rust_lapper::Lapper;
+use serde::Serialize;
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
 

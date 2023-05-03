@@ -8,6 +8,9 @@ use std::thread::{Builder, JoinHandle};
 
 use clap::Parser;
 use serde_json::json;
+#[cfg(feature = "progbars")]
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+
 
 mod cli;
 mod gapbreaks;
@@ -45,6 +48,7 @@ fn count_permutations(o_count: u64, obs: &[u64], alt: Alternate) -> f64 {
         Alternate::Greater => obs.iter().map(|i| (o_count <= *i) as u8 as f64).sum(),
     }
 }
+
 // **********
 
 fn main() -> std::io::Result<()> {
@@ -89,11 +93,33 @@ fn main() -> std::io::Result<()> {
     info!("observed : {}", initial_overlap_count);
 
     let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
+
+    #[cfg(feature = "progbars")]
+    let (progs, pb) = {
+        let progs = MultiProgress::new();
+        let sty = ProgressStyle::with_template(
+            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+        )
+        .unwrap()
+        .progress_chars("##-");
+
+        let mut pb: Vec<ProgressBar> = vec![];
+        for _i in 0..args.threads {
+            let p = progs.add(ProgressBar::new(chunk_size.into()));
+            p.set_style(sty.clone());
+            pb.push(p);
+        }
+        (progs, pb)
+    };
+
     let handles: Vec<JoinHandle<Vec<u64>>> = (0..args.threads)
         .map(|i| {
             let m_a = a_intv.clone();
             let m_b = b_intv.clone();
             let m_g = genome.clone();
+            #[cfg(feature = "progbars")]
+            let m_p = pb[i as usize].clone();
+
             let builder = Builder::new().name(format!("regionRs-{}", i));
             // Send chunk to thread
             let start_iter = (i as u32) * chunk_size;
@@ -102,6 +128,9 @@ fn main() -> std::io::Result<()> {
                 .spawn(move || {
                     (start_iter..stop_iter)
                         .map(|_| {
+                            #[cfg(feature = "progbars")]
+                            m_p.inc(1);
+
                             args.count
                                 .ovl(&args.random.ize(&m_a, &m_g, args.per_chrom), &m_b)
                         })
@@ -117,6 +146,8 @@ fn main() -> std::io::Result<()> {
         let result: Vec<u64> = handle.join().unwrap();
         all_counts.extend(result);
     }
+    #[cfg(feature = "progbars")]
+    progs.clear().unwrap();
     /*if let Ok(report) = guard.report().build() { println!("report: {:?}", &report); };*/
 
     // Calculate
