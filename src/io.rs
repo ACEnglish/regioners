@@ -25,7 +25,6 @@ impl GenomeShift {
     pub fn make_gap_budget(&mut self, intervals: &Lapper<u64, u64>, per_chrom: &bool) {
         let mut ret = HashMap::<u64, u64>::new();
         match per_chrom {
-
             false => {
                 ret.insert(0, self.span - intervals.cov());
             }
@@ -39,7 +38,6 @@ impl GenomeShift {
                             .sum(),
                     );
                 }
-            }
             }
         }
         self.gap_budget = Some(ret);
