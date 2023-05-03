@@ -1,7 +1,9 @@
 use clap::ValueEnum;
+use serde::Serialize;
 use rust_lapper::Lapper;
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Overlapper {
     // count number of overlaps
     All,
@@ -26,14 +28,5 @@ impl Overlapper {
                 .map(|i| b_intv.find(i.start, i.stop).count() as u64)
                 .sum(),
         }
-    }
-}
-
-impl ::serde::Serialize for Overlapper {
-    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(match *self {
-            Overlapper::Any => "any",
-            Overlapper::All => "all",
-        })
     }
 }

@@ -1,12 +1,14 @@
 use clap::ValueEnum;
+use serde::Serialize;
+use rust_lapper::Lapper;
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
 
 use crate::gapbreaks::GapBreaks;
 use crate::io::{GenomeShift, Iv};
-use rust_lapper::Lapper;
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Randomizer {
     // shuffle intervals allowing overlaps
     Shuffle,
@@ -31,16 +33,6 @@ impl Randomizer {
                 None => panic!("Cannot run novl randomizer without gap_budget in genome"),
             },
         })(intv, genome, per_chrom))
-    }
-}
-
-impl ::serde::Serialize for Randomizer {
-    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(match *self {
-            Randomizer::Shuffle => "shuffle",
-            Randomizer::Circle => "circle",
-            Randomizer::Novl=> "novl",
-        })
     }
 }
 
