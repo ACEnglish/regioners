@@ -131,3 +131,5 @@ p.set(xlabel="Intersection Count", ylabel="Permutation Density")
 - can save memory by making sending Lappers as read-only to threads?
   [src](https://stackoverflow.com/questions/68908091/how-do-i-send-read-only-data-to-other-threads-without-copying)
   though memory isn't much of a problem.
+
+... build from features/prog_bars for something cool to look at for the few seconds you're waiting ...
