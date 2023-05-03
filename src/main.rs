@@ -116,7 +116,7 @@ fn main() -> std::io::Result<()> {
                         .map(|_| {
                             m_p.inc(1);
                             args.count
-                                .ovl(&args.random.izer(&m_a, &m_g, args.per_chrom), &m_b)
+                                .ovl(&args.random.ize(&m_a, &m_g, args.per_chrom), &m_b)
                         })
                         .collect()
                 })

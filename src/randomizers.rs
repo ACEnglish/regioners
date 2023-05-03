@@ -17,7 +17,7 @@ pub enum Randomizer {
 }
 
 impl Randomizer {
-    pub fn izer(
+    pub fn ize(
         &self,
         intv: &Lapper<u64, u64>,
         genome: &GenomeShift,
