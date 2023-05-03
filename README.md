@@ -8,6 +8,7 @@ for interval overlap permutation testing.
 git clone https://github.com/ACEnglish/regione_rust
 cd regione_rust
 cargo build --release
+# build with progress bars by adding `--features progbars`
 # executable in ./target/release/regione_rust
 ```
 
@@ -67,11 +68,10 @@ a single intersection.
 in the bed files on chromosomes not inside the `--genome` file, those regions will not be loaded.
 * `-A` and `-B` : Bed files with genomic regions to test. They must be sorted and every `start < stop`.
 * `--num-times` : Number of permutations to perform. See [this](https://stats.stackexchange.com/questions/80025/required-number-of-permutations-for-a-permutation-based-p-value) for help on selecting a value.
-* `--mask` : The regions may have spans of the genome on which they should not be placed (e.g. reference gaps). Use `--mask` to hide unused genome spans.
+* `--mask` : The genome may have regions where intervals should not be placed (e.g. reference gaps). Input intervals overlapping masked regions are removed and randomization will not place intervals there.
 * `--per-chrom` : By default, `regione_rust` randomization strategies will allow regions to be placed anywhere on the genome.  With `--per-chrom` regions are placed into positions on the same chromosome.
-* `--no-merge-ovl` : Turn off merging of overlapping intervals in `-A` and `-B` before processing. Incompatible with `--random novl.
-* `--no-swap` : Turn off swapping `-A` and `-B` if `-A` contains fewer intervals. However, one may have a reason to shuffle `-A` regardless of any size
-difference. To accomplish this, simply specify `--no-swap`
+* `--no-merge-ovl` : Turn off merging of overlapping intervals in `-A` and `-B` before processing. Incompatible with `--random novl`.
+* `--no-swap` : Turn off swapping `-A` and `-B` if `-A` contains fewer intervals. 
 
 ## Performance Test
 
@@ -91,7 +91,7 @@ The output is a json with structure:
 - A_cnt : number of entries in `-A` (note may be swapped from original paramter)
 - B_cnt : number of entries in `-B` (note may be swapped from original paramter)
 - alt : alternate hypothesis used for p-value - 'l'ess or 'g'reater
-- counter : all (0) or any (1) counter used
+- count : overlap counter used
 - no_merge : input beds overlaps were not merged before processing if true
 - n : number of permutations performed
 - obs : observed number of intersections
@@ -100,7 +100,7 @@ The output is a json with structure:
 - perm_sd : permutations' standard deviation
 - perms : list of permutations' number of intersections
 - pval : permutation test's p-value
-- random : shuffle (0), circle (1), novl (2) randomizer used
+- random : randomizer used
 - swapped : were `-A` and `-B` swapped
 - zscore : permutation test's zscore
 
