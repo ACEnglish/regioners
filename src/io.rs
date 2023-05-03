@@ -24,9 +24,9 @@ pub struct GenomeShift {
 impl GenomeShift {
     pub fn make_gap_budget(&mut self, intervals: &Lapper<u64, u64>, per_chrom: &bool) {
         let mut ret = HashMap::<u64, u64>::new();
-        if *per_chrom {
-            ret.insert(0, self.span - intervals.cov());
-        } else {
+        match per_chrom {
+            false => {ret.insert(0, self.span - intervals.cov());}
+            true => {
             for i in self.chrom.iter() {
                 ret.insert(
                     i.start,
@@ -35,6 +35,7 @@ impl GenomeShift {
                         .map(|p| p.stop - p.start)
                         .sum(),
                 );
+            }
             }
         }
         self.gap_budget = Some(ret);
@@ -215,7 +216,7 @@ pub fn read_bed(file: &Path, genome: &GenomeShift, mask: &Option<MaskShift>) -> 
                 warn!("{} missing from --genome and won't be loaded", chrom);
                 warned_chroms.push(chrom);
             }
-            continue;
+            continue
         }
         let skip = match mask {
             Some(m) => {
