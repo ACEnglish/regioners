@@ -1,3 +1,4 @@
+use clap::ValueEnum;
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
 
@@ -5,10 +6,35 @@ use crate::gapbreaks::GapBreaks;
 use crate::io::{GenomeShift, Iv};
 use rust_lapper::Lapper;
 
-// ***********
-// Randomizers
-// ***********
-pub fn shuffle_intervals(
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum Randomizer {
+    // shuffle intervals allowing overlaps
+    Shuffle = 0,
+    // rotate intervals preserving order/spacing
+    Circle = 1,
+    // shuffle intervals without allowing overlaps
+    Novl = 2,
+}
+
+impl Randomizer {
+    pub fn izer(
+        &self,
+        intv: &Lapper<u64, u64>,
+        genome: &GenomeShift,
+        per_chrom: bool,
+    ) -> Lapper<u64, u64> {
+        match self {
+            Randomizer::Circle => circle_intervals(intv, genome, per_chrom),
+            Randomizer::Shuffle => shuffle_intervals(intv, genome, per_chrom),
+            Randomizer::Novl => match genome.gap_budget {
+                Some(_) => novl_intervals(intv, genome, per_chrom),
+                None => panic!("Cannot run novl randomizer without gap_budget in genome"),
+            },
+        }
+    }
+}
+
+fn shuffle_intervals(
     intv: &Lapper<u64, u64>,
     genome: &GenomeShift,
     per_chrom: bool,
@@ -39,7 +65,7 @@ pub fn shuffle_intervals(
     )
 }
 
-pub fn circle_intervals(
+fn circle_intervals(
     intv: &Lapper<u64, u64>,
     genome: &GenomeShift,
     per_chrom: bool,
@@ -95,7 +121,7 @@ pub fn circle_intervals(
     Lapper::<u64, u64>::new(ret)
 }
 
-pub fn novl_intervals(
+fn novl_intervals(
     intv: &Lapper<u64, u64>,
     genome: &GenomeShift,
     per_chrom: bool,

@@ -1,6 +1,8 @@
 extern crate pretty_env_logger;
 
-use clap::{Parser, ValueEnum};
+use crate::overlappers::Overlapper;
+use crate::randomizers::Randomizer;
+use clap::Parser;
 
 #[derive(Parser)]
 // A rust implementation of regioneR for interval overlap permutation testing
@@ -35,8 +37,8 @@ pub struct ArgParser {
     pub random: Randomizer,
 
     /// overlap counting strategy
-    #[arg(value_enum, long, default_value_t = Counter::All)]
-    pub count: Counter,
+    #[arg(value_enum, long, default_value_t = Overlapper::All)]
+    pub count: Overlapper,
 
     /// bed file of genome regions to mask (chrom<tab>start<tab>end)
     #[arg(long)]
@@ -53,24 +55,6 @@ pub struct ArgParser {
     /// do not swap A and B
     #[arg(long = "no-swap", default_value_t = false)]
     pub no_swap: bool,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum Randomizer {
-    // shuffle intervals allowing overlaps
-    Shuffle = 0,
-    // rotate intervals preserving order/spacing
-    Circle = 1,
-    // shuffle intervals without allowing overlaps
-    Novl = 2,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum Counter {
-    // count number of overlaps
-    All = 0,
-    // count if any overlap
-    Any = 1,
 }
 
 impl ArgParser {

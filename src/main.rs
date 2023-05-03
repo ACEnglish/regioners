@@ -7,38 +7,21 @@ use std::io::prelude::*;
 use std::thread::{Builder, JoinHandle};
 
 use clap::Parser;
-use rust_lapper::Lapper;
-use serde_json::json;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use serde_json::json;
 
 mod cli;
 mod gapbreaks;
 mod io;
+mod overlappers;
 mod randomizers;
 
 use crate::cli::ArgParser;
 use crate::io::{read_bed, read_genome, read_mask};
-use crate::randomizers::{circle_intervals, novl_intervals, shuffle_intervals};
+use crate::randomizers::Randomizer;
 
 // **********
 // Helpers
-fn all_overlap_count(a_intv: &Lapper<u64, u64>, b_intv: &Lapper<u64, u64>) -> u64 {
-    /* Return number of b intervals intersecting each of a's intervals */
-    a_intv.iter()
-        .map(|i| b_intv.find(i.start, i.stop).count() as u64)
-        .sum()
-}
-
-fn any_overlap_count(a_intv: &Lapper<u64, u64>, b_intv: &Lapper<u64, u64>) -> u64 {
-    /* Return number of A intervals intersecting a B intervals */
-    a_intv.iter()
-        .map(|i| match b_intv.find(i.start, i.stop).next() {
-            Some(_) => 1,
-            None => 0,
-        })
-        .sum()
-}
-
 fn mean_std(v: &[u64]) -> (f64, f64) {
     /* Calculate mean and standard deviation */
     let n = v.len() as f64;
@@ -90,35 +73,26 @@ fn main() -> std::io::Result<()> {
         }
         false => false,
     };
-    let overlapper = match args.count {
-        cli::Counter::Any => any_overlap_count,
-        cli::Counter::All => all_overlap_count,
-    };
-    let randomizer = match args.random {
-        cli::Randomizer::Circle => circle_intervals,
-        cli::Randomizer::Shuffle => shuffle_intervals,
-        cli::Randomizer::Novl => {
-            genome.make_gap_budget(&a_intv, &args.per_chrom);
-            novl_intervals
-        }
-    };
+    if args.random == Randomizer::Novl {
+        genome.make_gap_budget(&a_intv, &args.per_chrom)
+    }
 
     // profiling
     /*let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();*/
 
     // Processing
-    let initial_overlap_count: u64 = overlapper(&a_intv, &b_intv);
+    let initial_overlap_count: u64 = args.count.ovl(&a_intv, &b_intv);
     info!("observed : {}", initial_overlap_count);
-    
+
     let progs = MultiProgress::new();
     let sty = ProgressStyle::with_template(
         "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
     )
     .unwrap()
     .progress_chars("##-");
-    
+
     let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
-    let mut pb : Vec<ProgressBar> = vec![];
+    let mut pb: Vec<ProgressBar> = vec![];
     for _i in 0..args.threads {
         let p = progs.add(ProgressBar::new(chunk_size.into()));
         p.set_style(sty.clone());
@@ -130,7 +104,7 @@ fn main() -> std::io::Result<()> {
             let m_a = a_intv.clone();
             let m_b = b_intv.clone();
             let m_g = genome.clone();
-            let m_i = i.clone() as usize;
+            let m_i = i as usize;
             let m_p = pb[m_i].clone();
             let builder = Builder::new().name(format!("regionRs-{}", i));
             // Send chunk to thread
@@ -138,7 +112,13 @@ fn main() -> std::io::Result<()> {
             let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
             builder
                 .spawn(move || {
-                    (start_iter..stop_iter).map(|_| { m_p.inc(1); overlapper(&randomizer(&m_a, &m_g, args.per_chrom), &m_b) }).collect()
+                    (start_iter..stop_iter)
+                        .map(|_| {
+                            m_p.inc(1);
+                            args.count
+                                .ovl(&args.random.izer(&m_a, &m_g, args.per_chrom), &m_b)
+                        })
+                        .collect()
                 })
                 .unwrap()
         })
