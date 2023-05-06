@@ -1,3 +1,4 @@
+//! Input file parsers
 extern crate pretty_env_logger;
 
 use std::collections::HashMap;
