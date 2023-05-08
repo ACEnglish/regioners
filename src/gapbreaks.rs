@@ -18,7 +18,7 @@ const NOVLMAGIC: u64 = 10000;
 /// Holds the length of uncovered spans in a genome and a private random
 /// number generator. Can be iterated to generate random sized gaps.
 /// Gaps are returned as `(false, size)` tuples so they be differentiated
-/// from covered intervals (`(true, size)`) in [`regione_rust::randomizers::novl_intervals`] 
+/// from covered intervals (`(true, size)`) in [`randomizers::novl_intervals`] 
 /// 
 /// Example:
 ///  

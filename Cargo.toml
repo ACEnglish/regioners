@@ -1,5 +1,5 @@
 [package]
-name = "regione_rust"
+name = "regioners"
 version = "0.2.1"
 edition = "2021"
 
