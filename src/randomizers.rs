@@ -51,10 +51,10 @@ fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: b
             } else {
                 (0, genome.span)
             };
-            let shift = rand.next_range(lower..(upper - (i.stop - i.start)));
+            let new_position = rand.next_range(lower..(upper - (i.stop - i.start)));
             Iv {
-                start: i.start + shift,
-                stop: i.stop + shift,
+                start: new_position,
+                stop: new_position + (i.stop - i.start),
                 val: 0,
             }
         })
