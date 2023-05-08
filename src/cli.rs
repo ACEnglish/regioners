@@ -1,3 +1,4 @@
+//! Command line argument parser
 extern crate pretty_env_logger;
 
 use crate::overlappers::Overlapper;
@@ -5,18 +6,17 @@ use crate::randomizers::Randomizer;
 use clap::Parser;
 
 #[derive(Parser)]
-// A rust implementation of regioneR for interval overlap permutation testing
 #[command(author = "ACEnglish", version)]
 pub struct ArgParser {
-    /// chromosome lengths (chrom<tab>length)
+    /// chromosome lengths (chrom\tlength)
     #[arg(short, long)]
     pub genome: std::path::PathBuf,
 
-    /// bed file of regions (chrom<tab>start<tab>end)
+    /// bed file of regions (chrom\tstart\tend)
     #[arg(short = 'A')]
     pub bed_a: std::path::PathBuf,
 
-    /// bed file of regions (chrom<tab>start<tab>end)
+    /// bed file of regions (chrom\tstart\tend)
     #[arg(short = 'B')]
     pub bed_b: std::path::PathBuf,
 
@@ -40,7 +40,7 @@ pub struct ArgParser {
     #[arg(value_enum, long, default_value_t = Overlapper::All)]
     pub count: Overlapper,
 
-    /// bed file of genome regions to mask (chrom<tab>start<tab>end)
+    /// bed file of genome regions to mask (chrom\tstart\tend)
     #[arg(long)]
     pub mask: Option<std::path::PathBuf>,
 
@@ -58,6 +58,7 @@ pub struct ArgParser {
 }
 
 impl ArgParser {
+    /// Validate command line arguments
     pub fn validate(&self) -> bool {
         let mut is_ok = true;
         if !self.bed_a.is_file() {

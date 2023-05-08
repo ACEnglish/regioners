@@ -1,15 +1,15 @@
-# regione_rust
+# regioners
 A rust implementation of [regioneR](https://academic.oup.com/bioinformatics/article/32/2/289/1744157) 
 for interval overlap permutation testing.
 
 ## Install
 
 ```bash
-git clone https://github.com/ACEnglish/regione_rust
-cd regione_rust
+git clone https://github.com/ACEnglish/regioners
+cd regioners
 cargo build --release
 # build with progress bars by adding `--features progbars`
-# executable in ./target/release/regione_rust
+# executable in ./target/release/regioners
 ```
 
 ## Quick Start
@@ -19,27 +19,27 @@ Check for the significance of CpG islands' intersection with promoters
 # Download test beds
 bash test_beds/track_getter.sh
 # Test
-./target/release/regione_rust -g test_beds/grch38.genome.txt \
-		              -A test_beds/grch38.epd_promoters.bed \
-			      -B test_beds/grch38.cpg_islands.bed \
-			      -o cpgiVprom.json
+./target/release/regioners -g test_beds/grch38.genome.txt \
+		           -A test_beds/grch38.epd_promoters.bed \
+			   -B test_beds/grch38.cpg_islands.bed \
+			   -o cpgiVprom.json
 # Look at all options available
-./target/release/regione_rust -h
+./target/release/regioners -h
 ```
 
 ## Introduction
 
-`regione_rust` performs a permutation test on the intersection of two bed files. It first counts the number of intersections
+`regioners` performs a permutation test on the intersection of two bed files. It first counts the number of intersections
 between the two bed files and then will randomly shuffle one of the bed files and count the number of intersections.
 This shuffling/counting is repeated `--num-times`. The mean and standard deviation of the permutations is compared to the
 original intersection and a p-value is computed.
 
 ### Parameter details
-There are a number of options for controlling how `regione_rust` runs. Most have to do with IO, but three are important for the tests.
+There are a number of options for controlling how `regioners` runs. Most have to do with IO, but three are important for the tests.
 
 #### Randomization strategy `--random [shuffle | circle | novl]`
 
-How intervals are randomized is an important part of the permutation test. By default, `regione_rust` will randomly
+How intervals are randomized is an important part of the permutation test. By default, `regioners` will randomly
 `shuffle` each region. For example, two regions at `(x1, y1)`, `(x2, y2)` will each get a random shift (`r`) to 
 `(x1±r1, y1±r1)` and `(x2±r2, y2±r2)`. 
 
@@ -69,7 +69,7 @@ in the bed files on chromosomes not inside the `--genome` file, those regions wi
 * `-A` and `-B` : Bed files with genomic regions to test. They must be sorted and every `start < stop`.
 * `--num-times` : Number of permutations to perform. See [this](https://stats.stackexchange.com/questions/80025/required-number-of-permutations-for-a-permutation-based-p-value) for help on selecting a value.
 * `--mask` : The genome may have regions where intervals should not be placed (e.g. reference gaps). Input intervals overlapping masked regions are removed and randomization will not place intervals there.
-* `--per-chrom` : By default, `regione_rust` randomization strategies will allow regions to be placed anywhere on the genome.  With `--per-chrom` regions are placed into positions on the same chromosome.
+* `--per-chrom` : By default, `regioners` randomization strategies will allow regions to be placed anywhere on the genome.  With `--per-chrom` regions are placed into positions on the same chromosome.
 * `--no-merge-ovl` : Turn off merging of overlapping intervals in `-A` and `-B` before processing. Incompatible with `--random novl`.
 * `--no-swap` : Turn off swapping `-A` and `-B` if `-A` contains fewer intervals. 
 
@@ -108,7 +108,7 @@ The output is a json with structure:
 
 Using python with seaborn:
 ```python
-data = json.load(open("regione_rust_output.json"))
+data = json.load(open("regioners_output.json"))
 p = sb.histplot(data=data, x="perms",
 		color='gray', edgecolor='gray', kde=False, stat='density')
 p = sb.kdeplot(data=data, x="perms",
@@ -121,7 +121,7 @@ plt.text(x, y, 'observed intersections',rotation=90, bbox=props, ma='center')
 p.set(xlabel="Intersection Count", ylabel="Permutation Density")
 ```
 
-<img src="https://raw.githubusercontent.com/ACEnglish/regione_rust/main/figs/example_plot.png" alt="Girl in a jacket" style="width:250px;">
+<img src="https://raw.githubusercontent.com/ACEnglish/regioners/main/figs/example_plot.png" alt="Girl in a jacket" style="width:250px;">
 
 
 ## ToDos:

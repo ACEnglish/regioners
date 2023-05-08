@@ -1,3 +1,4 @@
+//! A rust implementation of regioneR for interval overlap permutation testing
 extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
@@ -11,7 +12,6 @@ use serde_json::json;
 #[cfg(feature = "progbars")]
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
-
 mod cli;
 mod gapbreaks;
 mod io;
@@ -22,8 +22,7 @@ use crate::cli::ArgParser;
 use crate::io::{read_bed, read_genome, read_mask};
 use crate::randomizers::Randomizer;
 
-// **********
-// Helpers
+/// Calculate mean and standard deviation from a vector of numbers
 fn mean_std(v: &[u64]) -> (f64, f64) {
     /* Calculate mean and standard deviation */
     let n = v.len() as f64;
@@ -34,22 +33,25 @@ fn mean_std(v: &[u64]) -> (f64, f64) {
     (mean, std_dev)
 }
 
+/// Alternate hypothesis enum
 #[derive(Clone, Copy)]
 #[repr(u8)]
 enum Alternate {
+    /// Observed intersections is less than permutations
     Less = b'l',
+    /// Observed intersections is greater than permutations
     Greater = b'g',
 }
 
-fn count_permutations(o_count: u64, obs: &[u64], alt: Alternate) -> f64 {
+/// Count the number of permutations greater/less than the observed count given
+/// the alternate hypothesis
+fn count_permutations(observed_count: u64, perms: &[u64], alt: Alternate) -> f64 {
     /* Return number of permutations the observed count is (g)reater or (l)ess than */
     match alt {
-        Alternate::Less => obs.iter().map(|i| (o_count >= *i) as u8 as f64).sum(),
-        Alternate::Greater => obs.iter().map(|i| (o_count <= *i) as u8 as f64).sum(),
+        Alternate::Less => perms.iter().map(|i| (observed_count >= *i) as u8 as f64).sum(),
+        Alternate::Greater => perms.iter().map(|i| (observed_count <= *i) as u8 as f64).sum(),
     }
 }
-
-// **********
 
 fn main() -> std::io::Result<()> {
     pretty_env_logger::formatted_timed_builder()

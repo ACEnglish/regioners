@@ -1,3 +1,4 @@
+//! Interval randomization techniques
 use clap::ValueEnum;
 use rust_lapper::Lapper;
 use serde::Serialize;
@@ -7,6 +8,7 @@ use tinyrand_std::clock_seed::ClockSeed;
 use crate::gapbreaks::GapBreaks;
 use crate::io::{GenomeShift, Iv};
 
+/// Holds the interval randomizations
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Randomizer {
@@ -36,10 +38,8 @@ impl Randomizer {
     }
 }
 
+/// Randomly move each interval to a new position
 fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool) -> Vec<Iv> {
-    /*
-        Randomly move each interval to new position
-    */
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     intv.iter()
         .map(|i| {
@@ -51,20 +51,18 @@ fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: b
             } else {
                 (0, genome.span)
             };
-            let shift = rand.next_range(lower..(upper - (i.stop - i.start)));
+            let new_position = rand.next_range(lower..(upper - (i.stop - i.start)));
             Iv {
-                start: i.start + shift,
-                stop: i.stop + shift,
+                start: new_position,
+                stop: new_position + (i.stop - i.start),
                 val: 0,
             }
         })
         .collect()
 }
 
+/// Randomly shift all intervals downstream with wrap-around
 fn circle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool) -> Vec<Iv> {
-    /*
-        Randomly shift all intervals downstream with wrap-around
-    */
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     let mut ret = Vec::<Iv>::new();
 
@@ -113,10 +111,8 @@ fn circle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bo
     ret
 }
 
+/// Randomly move each interval to new position without overlapping them
 fn novl_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool) -> Vec<Iv> {
-    /*
-        Randomly move each interval to new position without overlapping them
-    */
     let mut ret: Vec<Iv> = vec![];
 
     let spans = match per_chrom {

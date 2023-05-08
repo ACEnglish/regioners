@@ -1,3 +1,4 @@
+//! Overlap counters
 use clap::ValueEnum;
 use rust_lapper::Lapper;
 use serde::Serialize;
@@ -5,12 +6,13 @@ use serde::Serialize;
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Overlapper {
-    // count number of overlaps
+    /// Count number of overlaps
     All,
-    // count if any overlap
+    /// Count if any overlap
     Any,
 }
 
+/// For each interval in A, count any or all overlaps with B
 impl Overlapper {
     pub fn ovl(&self, a_intv: &Lapper<u64, u64>, b_intv: &Lapper<u64, u64>) -> u64 {
         match self {

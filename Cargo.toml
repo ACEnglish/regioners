@@ -1,6 +1,6 @@
 [package]
-name = "regione_rust"
-version = "0.2.0"
+name = "regioners"
+version = "0.2.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -22,7 +22,7 @@ indicatif = {version = "*", features = ["rayon"], optional=true}
 [features]
 progbars = ["dep:indicatif"]
 
-#[profile.release]
-#lto = true
-#panic = "abort"
+[profile.release]
+lto = true
+panic = "abort"
 

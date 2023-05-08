@@ -1,3 +1,27 @@
+Day 5 Log:
+
+```
+  if(!hasArg(window)) {
+    window <- 5*mean(width(A))
+  }
+  if(!hasArg(step)) {
+    step <- floor(window/10)
+  }
+   num.steps <- floor(window/step)
+    
+    shifts <- (1:num.steps)*step
+    shifts <- c(rev(-1*shifts), 0, shifts)
+
+
+mean and sd,
+
+shifted.evaluation = shifted 
+
+shifted.z.score <- (shifted.evaluation - mean.permuted)/sd.permuted
+
+
+```
+
 Day 4 Log:
 ==========
 
