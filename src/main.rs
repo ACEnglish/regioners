@@ -5,7 +5,9 @@ extern crate log;
 
 use std::fs::File;
 use std::io::prelude::*;
+use std::sync::Arc;
 use std::thread::{Builder, JoinHandle};
+use std::time::Instant;
 
 use clap::Parser;
 use serde_json::json;
@@ -87,6 +89,11 @@ fn main() -> std::io::Result<()> {
         genome.make_gap_budget(&a_intv, &args.per_chrom)
     }
 
+    // All set. Won't need to manipulate again and can pass without a clone
+    let genome = Arc::new(genome);
+    let a_intv = Arc::new(a_intv);
+    let b_intv = Arc::new(b_intv);
+
     // profiling
     /*let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();*/
 
@@ -113,7 +120,7 @@ fn main() -> std::io::Result<()> {
         }
         (progs, pb)
     };
-
+    //let now = Instant::now();
     let handles: Vec<JoinHandle<Vec<u64>>> = (0..args.threads)
         .map(|i| {
             let m_a = a_intv.clone();
@@ -141,7 +148,7 @@ fn main() -> std::io::Result<()> {
                 .unwrap()
         })
         .collect();
-
+    //info!("Thread time T0: {:?}", now.elapsed());
     // Collect
     let mut all_counts: Vec<u64> = vec![];
     for handle in handles {
