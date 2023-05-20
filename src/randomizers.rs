@@ -12,11 +12,11 @@ use crate::io::{GenomeShift, Iv};
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Randomizer {
-    // shuffle intervals allowing overlaps
+    /// shuffle intervals allowing overlaps
     Shuffle,
-    // rotate intervals preserving order/spacing
+    /// rotate intervals preserving order/spacing
     Circle,
-    // shuffle intervals without allowing overlaps
+    /// shuffle intervals without allowing overlaps
     Novl,
 }
 

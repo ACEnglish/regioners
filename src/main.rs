@@ -6,12 +6,12 @@ extern crate log;
 use std::fs::File;
 use std::io::prelude::*;
 use std::sync::Arc;
-use std::thread::{Builder, JoinHandle};
+use std::thread::JoinHandle;
 
 use clap::Parser;
-use serde_json::json;
 #[cfg(feature = "progbars")]
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use serde_json::json;
 
 mod cli;
 mod gapbreaks;
@@ -47,10 +47,15 @@ enum Alternate {
 /// Count the number of permutations greater/less than the observed count given
 /// the alternate hypothesis
 fn count_permutations(observed_count: u64, perms: &[u64], alt: Alternate) -> f64 {
-    /* Return number of permutations the observed count is (g)reater or (l)ess than */
     match alt {
-        Alternate::Less => perms.iter().map(|i| (observed_count >= *i) as u8 as f64).sum(),
-        Alternate::Greater => perms.iter().map(|i| (observed_count <= *i) as u8 as f64).sum(),
+        Alternate::Less => perms
+            .iter()
+            .map(|i| (observed_count >= *i) as u8 as f64)
+            .sum(),
+        Alternate::Greater => perms
+            .iter()
+            .map(|i| (observed_count <= *i) as u8 as f64)
+            .sum(),
     }
 }
 
@@ -77,7 +82,9 @@ fn main() -> std::io::Result<()> {
         a_intv.merge_overlaps();
         b_intv.merge_overlaps();
     }
-    let swapped = if !args.no_swap & (a_intv.len() > b_intv.len()) {
+    let a_count = a_intv.len();
+    let b_count = b_intv.len();
+    let swapped = if !args.no_swap & (a_count > b_count) {
         info!("swapping A for shorter B");
         std::mem::swap(&mut a_intv, &mut b_intv);
         true
@@ -88,7 +95,7 @@ fn main() -> std::io::Result<()> {
         genome.make_gap_budget(&a_intv, &args.per_chrom)
     }
 
-    // All set. Won't need to manipulate again and can pass without a clone
+    // Won't need to change again. Can pass pointers to threads
     let genome = Arc::new(genome);
     let a_intv = Arc::new(a_intv);
     let b_intv = Arc::new(b_intv);
@@ -128,45 +135,39 @@ fn main() -> std::io::Result<()> {
             #[cfg(feature = "progbars")]
             let m_p = pb[i as usize].clone();
 
-            let builder = Builder::new().name(format!("regionRs-{}", i));
-            // Send chunk to thread
             let start_iter = (i as u32) * chunk_size;
             let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
-            builder
-                .spawn(move || {
-                    (start_iter..stop_iter)
-                        .map(|_| {
-                            #[cfg(feature = "progbars")]
-                            m_p.inc(1);
-
-                            args.count
-                                .ovl(&args.random.ize(&m_a, &m_g, args.per_chrom), &m_b)
-                        })
-                        .collect()
-                })
-                .unwrap()
+            std::thread::spawn(move || {
+                (start_iter..stop_iter)
+                    .map(|_| {
+                        #[cfg(feature = "progbars")]
+                        m_p.inc(1);
+                        args.count
+                            .ovl(&args.random.ize(&m_a, &m_g, args.per_chrom), &m_b)
+                    })
+                    .collect()
+            })
         })
         .collect();
 
     // Collect
-    let mut all_counts: Vec<u64> = vec![];
+    let mut perm_counts = Vec::<u64>::with_capacity(args.num_times as usize);
     for handle in handles {
-        let result: Vec<u64> = handle.join().unwrap();
-        all_counts.extend(result);
+        perm_counts.extend(handle.join().unwrap());
     }
     #[cfg(feature = "progbars")]
     progs.clear().unwrap();
     /*if let Ok(report) = guard.report().build() { println!("report: {:?}", &report); };*/
 
     // Calculate
-    let (mu, sd) = mean_std(&all_counts);
+    let (mu, sd) = mean_std(&perm_counts);
     let alt = if (initial_overlap_count as f64) < mu {
         Alternate::Less
     } else {
         Alternate::Greater
     };
-    let g_count = count_permutations(initial_overlap_count, &all_counts, alt);
-    let p_val = (g_count + 1.0) / ((all_counts.len() as f64) + 1.0);
+    let p_val = (count_permutations(initial_overlap_count, &perm_counts, alt) + 1.0)
+        / ((args.num_times as f64) + 1.0);
     let z_score = if (initial_overlap_count == 0) & (mu == 0.0) {
         warn!("z_score cannot be computed");
         0.0
@@ -179,7 +180,6 @@ fn main() -> std::io::Result<()> {
     info!("perm sd: {}", sd);
     info!("alt hypo : {}", alt as u8 as char);
     info!("p-val : {}", p_val);
-
     let data = json!({"pval": p_val,
                       "zscore": z_score,
                       "obs":initial_overlap_count,
@@ -191,11 +191,10 @@ fn main() -> std::io::Result<()> {
                       "no_merge": args.no_merge,
                       "random": args.random,
                       "count": args.count,
-                      "A_cnt" : a_intv.len(),
-                      "B_cnt" : b_intv.len(),
+                      "A_cnt" : a_count,
+                      "B_cnt" : b_count,
                       "per_chrom": args.per_chrom,
-                      "perms": all_counts});
-    let json_str = serde_json::to_string(&data).unwrap();
+                      "perms": perm_counts});
     let mut file = File::create(args.output)?;
-    file.write_all(json_str.as_bytes())
+    file.write_all(serde_json::to_string(&data).unwrap().as_bytes())
 }

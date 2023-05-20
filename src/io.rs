@@ -219,7 +219,7 @@ pub fn read_bed(file: &Path, genome: &GenomeShift, mask: &Option<MaskShift>) -> 
                 warn!("{} missing from --genome and won't be loaded", chrom);
                 warned_chroms.push(chrom);
             }
-            continue
+            continue;
         }
         let skip = match mask {
             Some(m) => {
