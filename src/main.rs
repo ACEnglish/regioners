@@ -142,8 +142,7 @@ fn main() -> std::io::Result<()> {
                     .map(|_| {
                         #[cfg(feature = "progbars")]
                         m_p.inc(1);
-                        args.count
-                            .ovl(&args.random.ize(&m_a, &m_g, args.per_chrom), &m_b)
+                        args.count.ovl(&args.random.ize(&m_a, &m_g, args.per_chrom), &m_b)
                     })
                     .collect()
             })
