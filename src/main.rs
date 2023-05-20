@@ -7,7 +7,6 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::sync::Arc;
 use std::thread::{Builder, JoinHandle};
-use std::time::Instant;
 
 use clap::Parser;
 use serde_json::json;
@@ -120,7 +119,7 @@ fn main() -> std::io::Result<()> {
         }
         (progs, pb)
     };
-    //let now = Instant::now();
+
     let handles: Vec<JoinHandle<Vec<u64>>> = (0..args.threads)
         .map(|i| {
             let m_a = a_intv.clone();
@@ -148,7 +147,7 @@ fn main() -> std::io::Result<()> {
                 .unwrap()
         })
         .collect();
-    //info!("Thread time T0: {:?}", now.elapsed());
+
     // Collect
     let mut all_counts: Vec<u64> = vec![];
     for handle in handles {
