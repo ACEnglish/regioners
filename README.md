@@ -35,7 +35,8 @@ This shuffling/counting is repeated `--num-times`. The mean and standard deviati
 original intersection and a p-value is computed.
 
 ### Parameter details
-There are a number of options for controlling how `regioners` runs. Most have to do with IO, but three are important for the tests.
+There are a number of options for controlling how `regioners` runs. Most have to do with IO and four are important for 
+the tests.
 
 #### Randomization strategy `--random [shuffle | circle | novl]`
 
@@ -46,15 +47,17 @@ How intervals are randomized is an important part of the permutation test. By de
 With `circle`, all regions are shifted by a set amount such that their spatial distances are preserved. i.e. 
 `(x1±r1, y1±r1)`, `(x2±r1, y2±r1)`
 
-The `novl` method looks at all uncovered spans of the genome and randomly breaks them up into smaller segments. It 
-then shuffles all intervals with the uncovered segments. This shuffled list is then re-placed along the genome,
-discarding the uncovered spans and updating the intervals to their new position. Note that this strategy is slightly
-less random.
+The `novl` method is much like the shuffle method, except that regions won't overlap after shuffling. This is achieved
+by looking at all uncovered spans of the genome and randomly breaking them apart into smaller segments. `novl`
+then shuffles all regions with the uncovered segments. This shuffled list is then re-placed along the genome,
+discarding the uncovered segments and updating the regions to their new position. Note that this strategy is slightly
+less random. See `src/gapbreaks.rs` for details.
 
-#### Controlling placment with `--per-chrom`
+#### Controlling placement with `--per-chrom`
 
-Some intervals shouldn't be shuffled across chromosomes. For example, [genes are not randomly](https://pubmed.ncbi.nlm.nih.gov/20642358/#:~:text=Genes%20are%20nonrandomly%20distributed%20in,genes%20with%20similar%20expression%20profiles.),
-distributed across chromosomes. Therefore, the randomization strategy may need to limit where intervals are moved. 
+Some intervals shouldn't be shuffled across chromosomes. For example, genes are not randomly
+distributed across chromosomes ([ref](https://pubmed.ncbi.nlm.nih.gov/20642358/#:~:text=Genes%20are%20nonrandomly%20distributed%20in,genes%20with%20similar%20expression%20profiles.)).
+Therefore, the randomization strategy may need to limit where intervals are moved. 
 The `--per-chrom` flag will keep intervals on their same chromosome.
 
 #### Counting strategy `--count [all | any]`
@@ -63,13 +66,14 @@ By default, `all` calculates intersections as the number of overlaps. For exampl
 that counts as two intersections. With `any`, the presence of an intersection is counted. So our example above would count 
 a single intersection.
 
-#### Remaining parameters
+#### Excluding genomic regions with `--mask`
+The genome may have regions where intervals should not be placed (e.g. reference gaps). Input intervals overlapping masked regions are removed and randomization will not place intervals there.
+
+#### IO parameters
 * `--genome` :  A two column file with `chrom\tsize`. This becomes the space over which we can shuffle regions. If there are any regions
 in the bed files on chromosomes not inside the `--genome` file, those regions will not be loaded.
 * `-A` and `-B` : Bed files with genomic regions to test. They must be sorted and every `start < stop`.
 * `--num-times` : Number of permutations to perform. See [this](https://stats.stackexchange.com/questions/80025/required-number-of-permutations-for-a-permutation-based-p-value) for help on selecting a value.
-* `--mask` : The genome may have regions where intervals should not be placed (e.g. reference gaps). Input intervals overlapping masked regions are removed and randomization will not place intervals there.
-* `--per-chrom` : By default, `regioners` randomization strategies will allow regions to be placed anywhere on the genome.  With `--per-chrom` regions are placed into positions on the same chromosome.
 * `--no-merge-ovl` : Turn off merging of overlapping intervals in `-A` and `-B` before processing. Incompatible with `--random novl`.
 * `--no-swap` : Turn off swapping `-A` and `-B` if `-A` contains fewer intervals. 
 
@@ -128,6 +132,3 @@ p.set(xlabel="Intersection Count", ylabel="Permutation Density")
 
 - gzip file reading
 - local z-score
-- can save memory by making sending Lappers as read-only to threads?
-  [src](https://stackoverflow.com/questions/68908091/how-do-i-send-read-only-data-to-other-threads-without-copying)
-  though memory isn't much of a problem.

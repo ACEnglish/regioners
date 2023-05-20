@@ -14,12 +14,11 @@ use tinyrand_std::ClockSeed;
 /// NOVLMAGIC is calculated as `int(1 / max_size_percent)`
 const NOVLMAGIC: u64 = 10000;
 
-
 /// Holds the length of uncovered spans in a genome and a private random
 /// number generator. Can be iterated to generate random sized gaps.
 /// Gaps are returned as `(false, size)` tuples so they be differentiated
-/// from covered intervals (`(true, size)`) in [`randomizers::novl_intervals`] 
-/// 
+/// from covered intervals (`(true, size)`) in [`randomizers::novl_intervals`]
+///
 /// Example:
 ///  
 /// ```
@@ -41,7 +40,7 @@ impl GapBreaks {
 
 impl Iterator for GapBreaks {
     type Item = (bool, u64);
-    
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.total_gap_size > 0 {
             let g_l = self
