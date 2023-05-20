@@ -32,7 +32,7 @@ pub struct GapBreaks {
 impl GapBreaks {
     pub fn new(total_gap_size: u64) -> Self {
         Self {
-            total_gap_size: total_gap_size,
+            total_gap_size,
             rand: StdRand::seed(ClockSeed::default().next_u64()),
         }
     }

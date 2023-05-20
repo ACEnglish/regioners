@@ -11,6 +11,7 @@ use std::thread::JoinHandle;
 use clap::Parser;
 #[cfg(feature = "progbars")]
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use serde::Serialize;
 use serde_json::json;
 
 mod cli;
@@ -23,39 +24,57 @@ use crate::cli::ArgParser;
 use crate::io::{read_bed, read_genome, read_mask};
 use crate::randomizers::Randomizer;
 
-/// Calculate mean and standard deviation from a vector of numbers
-fn mean_std(v: &[u64]) -> (f64, f64) {
-    /* Calculate mean and standard deviation */
-    let n = v.len() as f64;
-    let mean = v.iter().sum::<u64>() as f64 / n;
-    let variance = v.iter().map(|x| (*x as f64 - mean).powi(2)).sum::<f64>() / n;
-    let std_dev = variance.sqrt();
-
-    (mean, std_dev)
+/// Creates and holds permutation test results
+#[derive(Serialize)]
+struct PermTest {
+    observed: u64,
+    num_perms: f64,
+    mean: f64,
+    std_dev: f64,
+    p_val: f64,
+    z_score: f64,
+    alt: char,
+    perms: Vec<u64>,
 }
 
-/// Alternate hypothesis enum
-#[derive(Clone, Copy)]
-#[repr(u8)]
-enum Alternate {
-    /// Observed intersections is less than permutations
-    Less = b'l',
-    /// Observed intersections is greater than permutations
-    Greater = b'g',
-}
-
-/// Count the number of permutations greater/less than the observed count given
-/// the alternate hypothesis
-fn count_permutations(observed_count: u64, perms: &[u64], alt: Alternate) -> f64 {
-    match alt {
-        Alternate::Less => perms
+impl PermTest {
+    pub fn new(observed: u64, perms: Vec<u64>) -> Self {
+        let n = perms.len() as f64;
+        let mean = perms.iter().sum::<u64>() as f64 / n;
+        let variance = perms
             .iter()
-            .map(|i| (observed_count >= *i) as u8 as f64)
-            .sum(),
-        Alternate::Greater => perms
-            .iter()
-            .map(|i| (observed_count <= *i) as u8 as f64)
-            .sum(),
+            .map(|x| (*x as f64 - mean).powi(2))
+            .sum::<f64>()
+            / n;
+        let std_dev = variance.sqrt();
+        let (p_count, alt): (f64, char) = if (observed as f64) < mean {
+            (
+                perms.iter().map(|i| (observed >= *i) as u8 as f64).sum(),
+                'l',
+            )
+        } else {
+            (
+                perms.iter().map(|i| (observed <= *i) as u8 as f64).sum(),
+                'g',
+            )
+        };
+        let p_val = p_count + 1.0 / (n + 1.0);
+        let z_score = if (observed == 0) & (mean == 0.0) {
+            warn!("z_score cannot be computed");
+            0.0
+        } else {
+            ((observed as f64) - mean) / std_dev
+        };
+        PermTest {
+            observed,
+            p_val,
+            num_perms: n,
+            z_score,
+            mean,
+            std_dev,
+            alt,
+            perms,
+        }
     }
 }
 
@@ -159,33 +178,14 @@ fn main() -> std::io::Result<()> {
     /*if let Ok(report) = guard.report().build() { println!("report: {:?}", &report); };*/
 
     // Calculate
-    let (mu, sd) = mean_std(&perm_counts);
-    let alt = if (initial_overlap_count as f64) < mu {
-        Alternate::Less
-    } else {
-        Alternate::Greater
-    };
-    let p_val = (count_permutations(initial_overlap_count, &perm_counts, alt) + 1.0)
-        / ((args.num_times as f64) + 1.0);
-    let z_score = if (initial_overlap_count == 0) & (mu == 0.0) {
-        warn!("z_score cannot be computed");
-        0.0
-    } else {
-        ((initial_overlap_count as f64) - mu) / sd
-    };
+    let test = PermTest::new(initial_overlap_count, perm_counts);
 
     // Output
-    info!("perm mu: {}", mu);
-    info!("perm sd: {}", sd);
-    info!("alt hypo : {}", alt as u8 as char);
-    info!("p-val : {}", p_val);
-    let data = json!({"pval": p_val,
-                      "zscore": z_score,
-                      "obs":initial_overlap_count,
-                      "perm_mu": mu,
-                      "perm_sd": sd,
-                      "alt": alt as u8 as char,
-                      "n": args.num_times,
+    info!("perm mu: {}", test.mean);
+    info!("perm sd: {}", test.std_dev);
+    info!("alt hypo : {}", test.alt);
+    info!("p-val : {}", test.p_val);
+    let data = json!({"test": test,
                       "swapped": swapped,
                       "no_merge": args.no_merge,
                       "random": args.random,
@@ -193,7 +193,7 @@ fn main() -> std::io::Result<()> {
                       "A_cnt" : a_count,
                       "B_cnt" : b_count,
                       "per_chrom": args.per_chrom,
-                      "perms": perm_counts});
+    });
     let mut file = File::create(args.output)?;
     file.write_all(serde_json::to_string(&data).unwrap().as_bytes())
 }

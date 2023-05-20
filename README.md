@@ -112,16 +112,20 @@ The output is a json with structure:
 
 Using python with seaborn:
 ```python
-data = json.load(open("regioners_output.json"))
-p = sb.histplot(data=data, x="perms",
+# Load results and get the test information for plotting
+results = json.load(open("regioners_output.json"))
+test = results['test']
+# Draw the permutations' distribution
+p = sb.histplot(data=test, x="perms",
 		color='gray', edgecolor='gray', kde=False, stat='density')
-p = sb.kdeplot(data=data, x="perms",
+p = sb.kdeplot(data=test, x="perms",
 		color='black', ax=p)
-
-x = data['obs']
+# Draw a line at the observed intersections
+obs = test['observed']
+plt.axvline(obs, color='blue')
+# Draw a box for annotation
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.9)
-plt.axvline(x, color='blue')
-plt.text(x, y, 'observed intersections',rotation=90, bbox=props, ma='center')
+plt.text(obs, y, 'observed intersections',rotation=90, bbox=props, ma='center')
 p.set(xlabel="Intersection Count", ylabel="Permutation Density")
 ```
 
