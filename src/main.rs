@@ -49,12 +49,12 @@ impl PermTest {
         let std_dev = variance.sqrt();
         let (p_count, alt): (f64, char) = if (observed as f64) < mean {
             (
-                perms.iter().map(|i| (observed >= *i) as u8 as f64).sum(),
+                perms.iter().map(|i| (*i < observed) as u8 as f64).sum(),
                 'l',
             )
         } else {
             (
-                perms.iter().map(|i| (observed <= *i) as u8 as f64).sum(),
+                perms.iter().map(|i| (*i > observed) as u8 as f64).sum(),
                 'g',
             )
         };
@@ -113,7 +113,6 @@ fn main() -> std::io::Result<()> {
     if args.random == Randomizer::Novl {
         genome.make_gap_budget(&a_intv, &args.per_chrom)
     }
-
     // Won't need to change again. Can pass pointers to threads
     let genome = Arc::new(genome);
     let a_intv = Arc::new(a_intv);
