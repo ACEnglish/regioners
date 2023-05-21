@@ -58,7 +58,7 @@ impl PermTest {
                 'g',
             )
         };
-        let p_val = p_count + 1.0 / (n + 1.0);
+        let p_val = (p_count + 1.0) / (n + 1.0);
         let z_score = if (observed == 0) & (mean == 0.0) {
             warn!("z_score cannot be computed");
             0.0
