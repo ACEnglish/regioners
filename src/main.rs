@@ -125,10 +125,9 @@ fn main() -> std::io::Result<()> {
     let initial_overlap_count: u64 = args.count.ovl(&a_intv, &b_intv);
     info!("observed : {}", initial_overlap_count);
 
-    let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
-
     #[cfg(feature = "progbars")]
     let (progs, pb) = {
+        let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
         let progs = MultiProgress::new();
         let sty = ProgressStyle::with_template(
             "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
@@ -153,10 +152,9 @@ fn main() -> std::io::Result<()> {
             #[cfg(feature = "progbars")]
             let m_p = pb[i as usize].clone();
 
-            let start_iter = (i as u32) * chunk_size;
-            let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
             std::thread::spawn(move || {
-                (start_iter..stop_iter)
+                ((i as u32)..args.num_times)
+                    .step_by(args.threads as usize)
                     .map(|_| {
                         #[cfg(feature = "progbars")]
                         m_p.inc(1);
