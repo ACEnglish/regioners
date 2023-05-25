@@ -64,7 +64,7 @@ fn shuffle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: b
 /// Randomly shift all intervals downstream with wrap-around
 fn circle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool) -> Vec<Iv> {
     let mut rand = StdRand::seed(ClockSeed::default().next_u64());
-    let mut ret = Vec::<Iv>::new();
+    let mut ret: Vec<Iv> = Vec::<Iv>::with_capacity(intv.len());
 
     let genome_shift: u64 = rand.next_range(0..(genome.span));
 
@@ -113,7 +113,7 @@ fn circle_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bo
 
 /// Randomly move each interval to new position without overlapping them
 fn novl_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool) -> Vec<Iv> {
-    let mut ret: Vec<Iv> = vec![];
+    let mut ret: Vec<Iv> = Vec::<Iv>::with_capacity(intv.len());
 
     let spans = match per_chrom {
         true => genome.chrom.intervals.clone(),
