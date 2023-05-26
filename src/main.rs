@@ -47,15 +47,15 @@ impl PermTest {
             .sum::<f64>()
             / n;
         let std_dev = variance.sqrt();
-        let (p_count, alt): (f64, char) = if (observed as f64) < mean {
+        let (alt, p_count): (char, f64) = if (observed as f64) < mean {
             (
-                perms.iter().map(|i| (*i < observed) as u8 as f64).sum(),
                 'l',
+                perms.iter().map(|i| (*i < observed) as u8 as f64).sum(),
             )
         } else {
             (
-                perms.iter().map(|i| (*i > observed) as u8 as f64).sum(),
                 'g',
+                perms.iter().map(|i| (*i > observed) as u8 as f64).sum(),
             )
         };
         let p_val = (p_count + 1.0) / (n + 1.0);
