@@ -11,6 +11,8 @@ use std::thread::JoinHandle;
 use clap::Parser;
 #[cfg(feature = "progbars")]
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use rust_lapper::Lapper;
+use serde::Serialize;
 use serde_json::json;
 
 mod cli;
@@ -21,41 +23,93 @@ mod randomizers;
 
 use crate::cli::ArgParser;
 use crate::io::{read_bed, read_genome, read_mask};
-use crate::randomizers::Randomizer;
+use crate::randomizers::{shift_intervals, Randomizer};
 
-/// Calculate mean and standard deviation from a vector of numbers
-fn mean_std(v: &[u64]) -> (f64, f64) {
-    /* Calculate mean and standard deviation */
-    let n = v.len() as f64;
-    let mean = v.iter().sum::<u64>() as f64 / n;
-    let variance = v.iter().map(|x| (*x as f64 - mean).powi(2)).sum::<f64>() / n;
-    let std_dev = variance.sqrt();
-
-    (mean, std_dev)
+/// Creates and holds permutation test results
+#[derive(Serialize)]
+struct PermTest {
+    observed: u64,
+    num_perms: f64,
+    mean: f64,
+    std_dev: f64,
+    p_val: f64,
+    z_score: f64,
+    alt: char,
+    perms: Vec<u64>,
 }
 
-/// Alternate hypothesis enum
-#[derive(Clone, Copy)]
-#[repr(u8)]
-enum Alternate {
-    /// Observed intersections is less than permutations
-    Less = b'l',
-    /// Observed intersections is greater than permutations
-    Greater = b'g',
+impl PermTest {
+    pub fn new(observed: u64, perms: Vec<u64>) -> Self {
+        let n = perms.len() as f64;
+        let mean = perms.iter().sum::<u64>() as f64 / n;
+        let variance = perms
+            .iter()
+            .map(|x| (*x as f64 - mean).powi(2))
+            .sum::<f64>()
+            / n;
+        let std_dev = variance.sqrt();
+        let (alt, p_count): (char, f64) = if (observed as f64) < mean {
+            (
+                'l',
+                perms.iter().map(|i| (*i < observed) as u8 as f64).sum(),
+            )
+        } else {
+            (
+                'g',
+                perms.iter().map(|i| (*i > observed) as u8 as f64).sum(),
+            )
+        };
+        let p_val = (p_count + 1.0) / (n + 1.0);
+        let z_score = if (observed == 0) & (mean == 0.0) {
+            warn!("z_score cannot be computed");
+            0.0
+        } else {
+            ((observed as f64) - mean) / std_dev
+        };
+        PermTest {
+            observed,
+            p_val,
+            num_perms: n,
+            z_score,
+            mean,
+            std_dev,
+            alt,
+            perms,
+        }
+    }
 }
 
-/// Count the number of permutations greater/less than the observed count given
-/// the alternate hypothesis
-fn count_permutations(observed_count: u64, perms: &[u64], alt: Alternate) -> f64 {
-    match alt {
-        Alternate::Less => perms
-            .iter()
-            .map(|i| (observed_count >= *i) as u8 as f64)
-            .sum(),
-        Alternate::Greater => perms
-            .iter()
-            .map(|i| (observed_count <= *i) as u8 as f64)
-            .sum(),
+/// Creates and holds local z-score results
+#[derive(Serialize)]
+struct LocalZscore {
+    shifts: Vec<f64>,
+    window: i64,
+    step: u64,
+}
+
+impl LocalZscore {
+    pub fn new(
+        a_intv: &Lapper<u64, u64>,
+        b_intv: &Lapper<u64, u64>,
+        args: &ArgParser,
+        test: &PermTest,
+    ) -> Self {
+        let shifts: Vec<f64> = (-args.window..args.window)
+            .step_by(args.step as usize)
+            .map(|i| {
+                let observed = args.count.ovl(&shift_intervals(&a_intv, i), &b_intv);
+                if (observed == 0) & (test.mean == 0.0) {
+                    0.0
+                } else {
+                    ((observed as f64) - test.mean) / test.std_dev
+                }
+            })
+            .collect();
+        LocalZscore {
+            shifts,
+            window: args.window,
+            step: args.step,
+        }
     }
 }
 
@@ -71,7 +125,7 @@ fn main() -> std::io::Result<()> {
         std::process::exit(1);
     }
 
-    let mask = args.mask.map(|p| read_mask(&p));
+    let mask = args.mask.as_ref().map(|p| read_mask(&p));
     let mut genome = read_genome(&args.genome, &mask);
     let mut a_intv = read_bed(&args.bed_a, &genome, &mask);
     let mut b_intv = read_bed(&args.bed_b, &genome, &mask);
@@ -94,7 +148,6 @@ fn main() -> std::io::Result<()> {
     if args.random == Randomizer::Novl {
         genome.make_gap_budget(&a_intv, &args.per_chrom)
     }
-
     // Won't need to change again. Can pass pointers to threads
     let genome = Arc::new(genome);
     let a_intv = Arc::new(a_intv);
@@ -107,10 +160,9 @@ fn main() -> std::io::Result<()> {
     let initial_overlap_count: u64 = args.count.ovl(&a_intv, &b_intv);
     info!("observed : {}", initial_overlap_count);
 
-    let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
-
     #[cfg(feature = "progbars")]
     let (progs, pb) = {
+        let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
         let progs = MultiProgress::new();
         let sty = ProgressStyle::with_template(
             "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
@@ -135,10 +187,9 @@ fn main() -> std::io::Result<()> {
             #[cfg(feature = "progbars")]
             let m_p = pb[i as usize].clone();
 
-            let start_iter = (i as u32) * chunk_size;
-            let stop_iter = std::cmp::min(start_iter + chunk_size, args.num_times);
             std::thread::spawn(move || {
-                (start_iter..stop_iter)
+                ((i as u32)..args.num_times)
+                    .step_by(args.threads as usize)
                     .map(|_| {
                         #[cfg(feature = "progbars")]
                         m_p.inc(1);
@@ -159,33 +210,15 @@ fn main() -> std::io::Result<()> {
     /*if let Ok(report) = guard.report().build() { println!("report: {:?}", &report); };*/
 
     // Calculate
-    let (mu, sd) = mean_std(&perm_counts);
-    let alt = if (initial_overlap_count as f64) < mu {
-        Alternate::Less
-    } else {
-        Alternate::Greater
-    };
-    let p_val = (count_permutations(initial_overlap_count, &perm_counts, alt) + 1.0)
-        / ((args.num_times as f64) + 1.0);
-    let z_score = if (initial_overlap_count == 0) & (mu == 0.0) {
-        warn!("z_score cannot be computed");
-        0.0
-    } else {
-        ((initial_overlap_count as f64) - mu) / sd
-    };
+    let test = PermTest::new(initial_overlap_count, perm_counts);
+    let local_zscores = LocalZscore::new(&a_intv, &b_intv, &args, &test);
 
     // Output
-    info!("perm mu: {}", mu);
-    info!("perm sd: {}", sd);
-    info!("alt hypo : {}", alt as u8 as char);
-    info!("p-val : {}", p_val);
-    let data = json!({"pval": p_val,
-                      "zscore": z_score,
-                      "obs":initial_overlap_count,
-                      "perm_mu": mu,
-                      "perm_sd": sd,
-                      "alt": alt as u8 as char,
-                      "n": args.num_times,
+    info!("perm mu: {}", test.mean);
+    info!("perm sd: {}", test.std_dev);
+    info!("alt hypo : {}", test.alt);
+    info!("p-val : {}", test.p_val);
+    let data = json!({"test": test,
                       "swapped": swapped,
                       "no_merge": args.no_merge,
                       "random": args.random,
@@ -193,7 +226,8 @@ fn main() -> std::io::Result<()> {
                       "A_cnt" : a_count,
                       "B_cnt" : b_count,
                       "per_chrom": args.per_chrom,
-                      "perms": perm_counts});
+                      "localZ": local_zscores,
+    });
     let mut file = File::create(args.output)?;
     file.write_all(serde_json::to_string(&data).unwrap().as_bytes())
 }

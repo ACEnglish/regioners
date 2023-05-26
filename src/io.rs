@@ -153,7 +153,7 @@ pub fn read_mask(file: &Path) -> MaskShift {
     ret
 }
 
-pub fn read_genome(file: &std::path::PathBuf, mask: &Option<MaskShift>) -> GenomeShift {
+pub fn read_genome(file: &Path, mask: &Option<MaskShift>) -> GenomeShift {
     /*
     Read a two column genome into a GenomeShifter
     */

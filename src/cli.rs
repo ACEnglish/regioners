@@ -55,6 +55,14 @@ pub struct ArgParser {
     /// do not swap A and B
     #[arg(long = "no-swap", default_value_t = false)]
     pub no_swap: bool,
+
+    /// local Z-score window size
+    #[arg(long, default_value_t = 1000)]
+    pub window: i64,
+
+    /// local Z-score window step
+    #[arg(long, default_value_t = 50)]
+    pub step: u64,
 }
 
 impl ArgParser {
