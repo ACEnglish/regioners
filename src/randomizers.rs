@@ -157,10 +157,19 @@ pub fn shift_intervals(intv: &Lapper<u64, u64>, shift: i64) -> Lapper<u64, u64> 
     Lapper::<u64, u64>::new(
         intv.iter()
             .map(|i| {
-                let new_position: u64 = std::cmp::max(0, (i.start as i64 + shift) as u64);
+                let new_position = i.start as i64 + shift;
+                let (new_start, new_end) = if new_position < 0 {
+                    if (i.stop as i64) + shift <= 0 {
+                        (0, 0)
+                    } else {
+                        (0, (i.stop - i.start) as i64 + new_position)
+                    }
+                } else {
+                    (new_position, new_position + (i.stop - i.start) as i64)
+                };
                 Iv {
-                    start: new_position,
-                    stop: new_position + (i.stop - i.start),
+                    start: new_start as u64,
+                    stop: new_end as u64,
                     val: 0,
                 }
             })
