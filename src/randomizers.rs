@@ -151,3 +151,19 @@ fn novl_intervals(intv: &Lapper<u64, u64>, genome: &GenomeShift, per_chrom: bool
     }
     ret
 }
+
+/// Shift each interval a set amount. Intervals shifted to < 0 are trimmed/removed
+pub fn shift_intervals(intv: &Lapper<u64, u64>, shift: i64) -> Lapper<u64, u64> {
+    Lapper::<u64, u64>::new(
+        intv.iter()
+            .map(|i| {
+                let new_position: u64 = std::cmp::max(0, (i.start as i64 + shift) as u64);
+                Iv {
+                    start: new_position,
+                    stop: new_position + (i.stop - i.start),
+                    val: 0,
+                }
+            })
+            .collect(),
+    )
+}

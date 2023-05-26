@@ -11,6 +11,7 @@ use std::thread::JoinHandle;
 use clap::Parser;
 #[cfg(feature = "progbars")]
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use rust_lapper::Lapper;
 use serde::Serialize;
 use serde_json::json;
 
@@ -22,7 +23,7 @@ mod randomizers;
 
 use crate::cli::ArgParser;
 use crate::io::{read_bed, read_genome, read_mask};
-use crate::randomizers::Randomizer;
+use crate::randomizers::{shift_intervals, Randomizer};
 
 /// Creates and holds permutation test results
 #[derive(Serialize)]
@@ -78,6 +79,40 @@ impl PermTest {
     }
 }
 
+/// Creates and holds local z-score results
+#[derive(Serialize)]
+struct LocalZscore {
+    shifts: Vec<f64>,
+    window: i64,
+    step: u64,
+}
+
+impl LocalZscore {
+    pub fn new(
+        a_intv: &Lapper<u64, u64>,
+        b_intv: &Lapper<u64, u64>,
+        args: &ArgParser,
+        test: &PermTest,
+    ) -> Self {
+        let shifts: Vec<f64> = (-args.window..args.window)
+            .step_by(args.step as usize)
+            .map(|i| {
+                let observed = args.count.ovl(&shift_intervals(&a_intv, i), &b_intv);
+                if (observed == 0) & (test.mean == 0.0) {
+                    0.0
+                } else {
+                    ((observed as f64) - test.mean) / test.std_dev
+                }
+            })
+            .collect();
+        LocalZscore {
+            shifts,
+            window: args.window,
+            step: args.step,
+        }
+    }
+}
+
 fn main() -> std::io::Result<()> {
     pretty_env_logger::formatted_timed_builder()
         .filter_level(log::LevelFilter::Info)
@@ -90,7 +125,7 @@ fn main() -> std::io::Result<()> {
         std::process::exit(1);
     }
 
-    let mask = args.mask.map(|p| read_mask(&p));
+    let mask = args.mask.as_ref().map(|p| read_mask(&p));
     let mut genome = read_genome(&args.genome, &mask);
     let mut a_intv = read_bed(&args.bed_a, &genome, &mask);
     let mut b_intv = read_bed(&args.bed_b, &genome, &mask);
@@ -176,6 +211,7 @@ fn main() -> std::io::Result<()> {
 
     // Calculate
     let test = PermTest::new(initial_overlap_count, perm_counts);
+    let local_zscores = LocalZscore::new(&a_intv, &b_intv, &args, &test);
 
     // Output
     info!("perm mu: {}", test.mean);
@@ -190,6 +226,7 @@ fn main() -> std::io::Result<()> {
                       "A_cnt" : a_count,
                       "B_cnt" : b_count,
                       "per_chrom": args.per_chrom,
+                      "localZ": local_zscores,
     });
     let mut file = File::create(args.output)?;
     file.write_all(serde_json::to_string(&data).unwrap().as_bytes())

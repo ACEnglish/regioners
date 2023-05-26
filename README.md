@@ -69,6 +69,13 @@ a single intersection.
 #### Excluding genomic regions with `--mask`
 The genome may have regions where intervals should not be placed (e.g. reference gaps). Input intervals overlapping masked regions are removed and randomization will not place intervals there.
 
+#### Local z-score `--window` and `--step`
+`regioners` will calculate a local z-score for the two intervals' overlap
+([details](https://www.bioconductor.org/packages/release/bioc/vignettes/regioneR/inst/doc/regioneR.html#local-z-score)).
+The `--window` is how many basepairs upstream and downstream the intervals will be shifted to perform the local z-score and the
+`--step` is the step size of the windows. For example, with a 1,000bp `--window` and `--step` of 100bp, the output will
+have 20 local z-scores.
+
 #### IO parameters
 * `--genome` :  A two column file with `chrom\tsize`. This becomes the space over which we can shuffle regions. If there are any regions
 in the bed files on chromosomes not inside the `--genome` file, those regions will not be loaded.
@@ -94,45 +101,64 @@ For comparison, a regioneR test of *100* permutations on above data in an Rstudi
 The output is a json with structure:
 - A_cnt : number of entries in `-A` (note may be swapped from original paramter)
 - B_cnt : number of entries in `-B` (note may be swapped from original paramter)
-- alt : alternate hypothesis used for p-value - 'l'ess or 'g'reater
 - count : overlap counter used
 - no_merge : input beds overlaps were not merged before processing if true
-- n : number of permutations performed
-- obs : observed number of intersections
 - per_chrom : randomization performed per-chromosome
-- perm_mu : permutations' mean
-- perm_sd : permutations' standard deviation
-- perms : list of permutations' number of intersections
-- pval : permutation test's p-value
 - random : randomizer used
 - swapped : were `-A` and `-B` swapped
-- zscore : permutation test's zscore
+- test : dictionary of test results
+- localZ : dictionary of local z-score results
+
+Test Key/Values
+- alt : alternate hypothesis used for p-value - 'l'ess or 'g'reater
+- mean : average number of overlaps of the permutations
+- num_perms : number of permutations performed
+- observed : observed number of intersections
+- pval : permutation test's p-value
+- perms : list of permutations' number of intersections
+- std_dev : permutations' standard deviation
+- z_score : permutation test's z-score
+
+LocalZ Key/Values
+- shifts : list of z-scores for each shift
+- step : step size used
+- window : window size used
 
 ## Plotting
 
 Using python with seaborn:
 ```python
+import json
+import seaborn as sb
+import matplotlib.pyplot as plt
+
 # Load results and get the test information for plotting
 results = json.load(open("regioners_output.json"))
 test = results['test']
 # Draw the permutations' distribution
 p = sb.histplot(data=test, x="perms",
-		color='gray', edgecolor='gray', kde=False, stat='density')
+                color='gray', edgecolor='gray', kde=False, stat='density')
 p = sb.kdeplot(data=test, x="perms",
-		color='black', ax=p)
+                color='black', ax=p)
 # Draw a line at the observed intersections
 obs = test['observed']
 plt.axvline(obs, color='blue')
 # Draw a box for annotation
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.9)
+y = 0.007
 plt.text(obs, y, 'observed intersections',rotation=90, bbox=props, ma='center')
 p.set(xlabel="Intersection Count", ylabel="Permutation Density")
+plt.show()
+
+# Plot the local z-scores
+local_z = data["localZ"]
+p = sb.lineplot(x=range(-local_z["window"], local_z["window"], local_z["step"]), y=local_z['shifts'])
+p.set(title="Local z-score values", xlabel="Shift", ylabel="z-score")
 ```
 
-<img src="https://raw.githubusercontent.com/ACEnglish/regioners/main/figs/example_plot.png" alt="Girl in a jacket" style="width:250px;">
+<img src="https://raw.githubusercontent.com/ACEnglish/regioners/main/figs/example_plot.png" alt="PermTest" style="width:250px;">
+<img src="https://raw.githubusercontent.com/ACEnglish/regioners/main/figs/example_zscore.png" alt="LocalZ" style="width:250px;">
 
-
-## ToDos:
+## Future Features?:
 
 - gzip file reading
-- local z-score
