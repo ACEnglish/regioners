@@ -6,7 +6,7 @@ for interval overlap permutation testing.
 
 Binaries are available under [releases](https://github.com/ACEnglish/regioners/releases). 
 
-Build from the repo:
+Or, build from the repo:
 ```bash
 git clone https://github.com/ACEnglish/regioners
 cd regioners
