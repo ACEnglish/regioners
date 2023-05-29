@@ -4,6 +4,9 @@ for interval overlap permutation testing.
 
 ## Install
 
+Binaries are available under [releases](https://github.com/ACEnglish/regioners/releases). 
+
+Or, build from the repo:
 ```bash
 git clone https://github.com/ACEnglish/regioners
 cd regioners
