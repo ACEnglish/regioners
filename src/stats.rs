@@ -1,7 +1,8 @@
-use crate::randomizers::shift_intervals;
-use crate::ArgParser;
 use rust_lapper::Lapper;
 use serde::Serialize;
+
+use crate::overlappers::Overlapper;
+use crate::randomizers::shift_intervals;
 
 /// Creates and holds permutation test results
 #[derive(Serialize)]
@@ -69,13 +70,15 @@ impl LocalZscore {
     pub fn new(
         a_intv: &Lapper<u64, u64>,
         b_intv: &Lapper<u64, u64>,
-        args: &ArgParser,
+        count: Overlapper,
+        window: i64,
+        step: u64,
         test: &PermTest,
     ) -> Self {
-        let shifts: Vec<f64> = (-args.window..args.window)
-            .step_by(args.step as usize)
+        let shifts: Vec<f64> = (-window..window)
+            .step_by(step as usize)
             .map(|i| {
-                let observed = args.count.ovl(&shift_intervals(a_intv, i), b_intv);
+                let observed = count.ovl(&shift_intervals(a_intv, i), b_intv);
                 if (observed == 0) & (test.mean == 0.0) {
                     0.0
                 } else {
@@ -85,8 +88,8 @@ impl LocalZscore {
             .collect();
         LocalZscore {
             shifts,
-            window: args.window,
-            step: args.step,
+            window,
+            step,
         }
     }
 }

@@ -123,7 +123,7 @@ fn main() -> std::io::Result<()> {
 
     // Calculate
     let test = PermTest::new(initial_overlap_count, perm_counts);
-    let local_zscores = LocalZscore::new(&a_intv, &b_intv, &args, &test);
+    let local_zscores = LocalZscore::new(&a_intv, &b_intv, args.count, args.window, args.step, &test);
 
     // Output
     info!("perm mu: {}", test.mean);
