@@ -154,7 +154,7 @@ p.set(xlabel="Intersection Count", ylabel="Permutation Density")
 plt.show()
 
 # Plot the local z-scores
-local_z = data["localZ"]
+local_z = results["localZ"]
 p = sb.lineplot(x=range(-local_z["window"], local_z["window"], local_z["step"]), y=local_z['shifts'])
 p.set(title="Local z-score values", xlabel="Shift", ylabel="z-score")
 ```
