@@ -19,6 +19,7 @@ mod cli;
 mod gapbreaks;
 mod io;
 mod overlappers;
+mod plot;
 mod randomizers;
 
 use crate::cli::ArgParser;
@@ -228,6 +229,8 @@ fn main() -> std::io::Result<()> {
                       "per_chrom": args.per_chrom,
                       "localZ": local_zscores,
     });
+    let _ = plot::plot_results(&data, &args.output);
+
     let mut file = File::create(args.output)?;
     file.write_all(serde_json::to_string(&data).unwrap().as_bytes())
 }
