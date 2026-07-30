@@ -145,13 +145,14 @@ obs = test['observed']
 plt.axvline(obs, color='blue')
 # Draw a box for annotation
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.9)
-y = 0.007
+ylim = p.get_ylim()
+y = (ylim[0] + ylim[1]) / 2
 plt.text(obs, y, 'observed intersections',rotation=90, bbox=props, ma='center')
 p.set(xlabel="Intersection Count", ylabel="Permutation Density")
 plt.show()
 
 # Plot the local z-scores
-local_z = data["localZ"]
+local_z = results["localZ"]
 p = sb.lineplot(x=range(-local_z["window"], local_z["window"], local_z["step"]), y=local_z['shifts'])
 p.set(title="Local z-score values", xlabel="Shift", ylabel="z-score")
 ```

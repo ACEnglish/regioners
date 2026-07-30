@@ -9,7 +9,6 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use clap::Parser;
-#[cfg(feature = "progbars")]
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rust_lapper::Lapper;
 use serde::Serialize;
@@ -19,6 +18,7 @@ mod cli;
 mod gapbreaks;
 mod io;
 mod overlappers;
+mod plot;
 mod randomizers;
 
 use crate::cli::ArgParser;
@@ -160,7 +160,6 @@ fn main() -> std::io::Result<()> {
     let initial_overlap_count: u64 = args.count.ovl(&a_intv, &b_intv);
     info!("observed : {}", initial_overlap_count);
 
-    #[cfg(feature = "progbars")]
     let (progs, pb) = {
         let chunk_size: u32 = ((args.num_times as f32) / (args.threads as f32)).ceil() as u32;
         let progs = MultiProgress::new();
@@ -184,14 +183,12 @@ fn main() -> std::io::Result<()> {
             let m_a = a_intv.clone();
             let m_b = b_intv.clone();
             let m_g = genome.clone();
-            #[cfg(feature = "progbars")]
             let m_p = pb[i as usize].clone();
 
             std::thread::spawn(move || {
                 ((i as u32)..args.num_times)
                     .step_by(args.threads as usize)
                     .map(|_| {
-                        #[cfg(feature = "progbars")]
                         m_p.inc(1);
                         args.count.ovl(&args.random.ize(&m_a, &m_g, args.per_chrom), &m_b)
                     })
@@ -205,7 +202,6 @@ fn main() -> std::io::Result<()> {
     for handle in handles {
         perm_counts.extend(handle.join().unwrap());
     }
-    #[cfg(feature = "progbars")]
     progs.clear().unwrap();
     /*if let Ok(report) = guard.report().build() { println!("report: {:?}", &report); };*/
 
@@ -228,6 +224,8 @@ fn main() -> std::io::Result<()> {
                       "per_chrom": args.per_chrom,
                       "localZ": local_zscores,
     });
+    let _ = plot::plot_results(&data, &args.output);
+
     let mut file = File::create(args.output)?;
     file.write_all(serde_json::to_string(&data).unwrap().as_bytes())
 }
